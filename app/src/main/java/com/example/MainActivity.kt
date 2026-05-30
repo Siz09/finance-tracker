@@ -57,6 +57,14 @@ fun MainAppContainer() {
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
+        // Reset selectedMonth back to current system calendar month on fresh launch
+        try {
+            val todayStr = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault()).format(java.util.Date())
+            viewModel.selectedMonth.value = todayStr
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         viewModel.events.collectLatest { event ->
             when (event) {
                 is FinanceEvent.Success -> snackbarHostState.showSnackbar(event.message)

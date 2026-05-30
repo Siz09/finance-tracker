@@ -295,6 +295,11 @@ fun DashboardScreen(
                                 ) {
                                     itemsIndexed(monthsList) { idx, mth ->
                                         val isSelected = idx == currentMonthIndex
+                                        val systemCal = Calendar.getInstance()
+                                        val systemYear = systemCal.get(Calendar.YEAR).toString()
+                                        val systemMonthIdx = systemCal.get(Calendar.MONTH)
+                                        val isSystemTodayMonth = (currentYear == systemYear && idx == systemMonthIdx)
+
                                         Box(
                                             modifier = Modifier
                                                 .background(
@@ -309,12 +314,22 @@ fun DashboardScreen(
                                                 .padding(horizontal = 16.dp, vertical = 10.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Text(
-                                                text = mth,
-                                                color = if (isSelected) DarkBg else WhiteText,
-                                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                                fontSize = 14.sp
-                                            )
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Text(
+                                                    text = mth,
+                                                    color = if (isSelected) DarkBg else WhiteText,
+                                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                                    fontSize = 14.sp
+                                                )
+                                                if (isSystemTodayMonth) {
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(4.dp)
+                                                            .background(color = if (isSelected) DarkBg else TealPrimary, shape = CircleShape)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
