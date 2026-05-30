@@ -6,7 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -53,32 +56,130 @@ fun DashboardScreen(
     }
     val totalExpenseSum = remember(categorySums) { categorySums.values.sum() }
 
+    var yearMenuExpanded by remember { mutableStateOf(false) }
+    val yearsList = listOf("2023", "2024", "2025", "2026", "2027", "2028")
+    val currentYear = remember(selectedMonth) { selectedMonth.take(4) }
+    val currentMonthIndex = remember(selectedMonth) { selectedMonth.substring(5).toIntOrNull()?.minus(1) ?: 0 }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(DarkBg).padding(horizontal = 16.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // Month selector
+            // Month Selector Ribbon (Paradigm B)
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(20.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { viewModel.selectPreviousMonth() }, modifier = Modifier.testTag("btn_prev_month")) {
-                            Icon(imageVector = Icons.Default.ChevronLeft, contentDescription = "Previous Month", tint = TealPrimary)
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                        // Top Row: Info Title & Year Dropdown Trigger
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = getFormattedMonthName(selectedMonth),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = WhiteText
+                                )
+                                Text(
+                                    text = "Monthly Overview",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = GreyText
+                                )
+                            }
+
+                            // Year dropdown trigger
+                            Box {
+                                Row(
+                                    modifier = Modifier
+                                        .background(DarkSurfaceElevated, RoundedCornerShape(10.dp))
+                                        .clickable { yearMenuExpanded = true }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = currentYear,
+                                        color = TealPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Select Year",
+                                        tint = TealPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = yearMenuExpanded,
+                                    onDismissRequest = { yearMenuExpanded = false },
+                                    modifier = Modifier.background(DarkSurfaceElevated)
+                                ) {
+                                    yearsList.forEach { yr ->
+                                        DropdownMenuItem(
+                                            text = { Text(text = yr, color = WhiteText, fontWeight = FontWeight.Bold) },
+                                            onClick = {
+                                                yearMenuExpanded = false
+                                                val monthStr = String.format("%02d", currentMonthIndex + 1)
+                                                viewModel.selectedMonth.value = "$yr-$monthStr"
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = getFormattedMonthName(selectedMonth), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = WhiteText)
-                            Text(text = "Monthly Overview", style = MaterialTheme.typography.bodySmall, color = GreyText)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Horizontally scrollable Months Ribbon
+                        val monthsList = listOf(
+                            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                        )
+                        val listState = rememberLazyListState()
+
+                        // Auto-scroll the selected month to the center when selectedMonth changes
+                        LaunchedEffect(currentMonthIndex) {
+                            listState.animateScrollToItem(maxOf(0, currentMonthIndex - 2))
                         }
-                        IconButton(onClick = { viewModel.selectNextMonth() }, modifier = Modifier.testTag("btn_next_month")) {
-                            Icon(imageVector = Icons.Default.ChevronRight, contentDescription = "Next Month", tint = TealPrimary)
+
+                        LazyRow(
+                            state = listState,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            itemsIndexed(monthsList) { idx, mth ->
+                                val isSelected = idx == currentMonthIndex
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            if (isSelected) TealPrimary else DarkSurfaceElevated,
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            val monthStr = String.format("%02d", idx + 1)
+                                            viewModel.selectedMonth.value = "$currentYear-$monthStr"
+                                        }
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = mth,
+                                        color = if (isSelected) DarkBg else WhiteText,
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
