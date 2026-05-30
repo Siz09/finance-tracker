@@ -72,7 +72,7 @@ class AlarmReceiver : BroadcastReceiver() {
         )
 
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // built-in android notification icon
+            .setSmallIcon(com.example.R.drawable.ic_launcher_foreground)
             .setContentTitle("Log Today's Expenses")
             .setContentText("Don't forget to keep your budget on track by logging today's finances!")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

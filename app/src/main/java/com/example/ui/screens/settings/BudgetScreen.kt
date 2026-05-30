@@ -22,8 +22,7 @@ import com.example.data.model.Budget
 import com.example.data.model.Category
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
-import java.text.NumberFormat
-import java.util.Locale
+import com.example.utils.CurrencyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,7 +38,7 @@ fun BudgetScreen(
     var selectedCategoryForEdit by remember { mutableStateOf<String?>(null) }
     var inputLimitVal by remember { mutableStateOf("") }
 
-    val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale.US) }
+
 
     // Map each expense category to currently computed spent totals inside select month
     val categorySpentMap = remember(transactions) {
@@ -151,13 +150,13 @@ fun BudgetScreen(
                             ) {
                                 Column {
                                     Text(text = "Amount Spent", style = MaterialTheme.typography.bodySmall, color = GreyText)
-                                    Text(text = currencyFormatter.format(spent), fontWeight = FontWeight.SemiBold, color = WhiteText)
+                                    Text(text = CurrencyFormatter.format(spent), fontWeight = FontWeight.SemiBold, color = WhiteText)
                                 }
 
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text(text = "Budget Limit", style = MaterialTheme.typography.bodySmall, color = GreyText)
                                     Text(
-                                        text = if (limitVal > 0.0) currencyFormatter.format(limitVal) else "No Limit set",
+                                        text = if (limitVal > 0.0) CurrencyFormatter.format(limitVal) else "No Limit set",
                                         fontWeight = FontWeight.Bold,
                                         color = if (limitVal > 0) TealPrimary else GreyText
                                     )

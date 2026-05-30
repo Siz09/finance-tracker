@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.data.dao.FinanceDao
 import com.example.data.model.AppSetting
 import com.example.data.model.Budget
@@ -23,13 +25,28 @@ abstract class FinanceDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: FinanceDatabase? = null
 
+        /**
+         * Migration 1 → 2: Added receiverName, receiverId, remarks, paymentMethod columns to transactions.
+         */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN receiverName TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN receiverId TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN remarks TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN paymentMethod TEXT")
+            }
+        }
+
         fun getDatabase(context: Context): FinanceDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     FinanceDatabase::class.java,
                     "finance_tracker_db"
-                ).fallbackToDestructiveMigration()
+                )
+                    .addMigrations(MIGRATION_1_2)
+                    // Fallback only as last resort for unhandled versions — preserves data across known migrations
+                    .fallbackToDestructiveMigrationFrom(0)
                     .build()
                 INSTANCE = instance
                 instance

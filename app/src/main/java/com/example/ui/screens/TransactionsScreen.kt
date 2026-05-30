@@ -19,11 +19,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.model.Transaction
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
-import java.text.NumberFormat
-import java.util.Locale
 
 @Composable
 fun TransactionsScreen(
@@ -32,12 +29,12 @@ fun TransactionsScreen(
     onAddTransactionClick: () -> Unit,
     onEditTransactionClick: (Int) -> Unit
 ) {
-    val transactions by viewModel.allTransactions.collectAsState()
-    
-    var filterType by remember { mutableStateOf("all") } // "all" | "income" | "expense"
-    var searchQuery by remember { mutableStateOf("") }
+    // Use currentMonthTransactions so list matches Dashboard's selected month
+    val transactions by viewModel.currentMonthTransactions.collectAsState()
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
 
-    val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale.US) }
+    var filterType by remember { mutableStateOf("all") }
+    var searchQuery by remember { mutableStateOf("") }
 
     val filteredList = remember(transactions, filterType, searchQuery) {
         transactions.filter { tx ->
@@ -46,138 +43,83 @@ fun TransactionsScreen(
                 "expense" -> tx.type == "expense"
                 else -> true
             }
-            val matchesQuery = tx.category.contains(searchQuery, ignoreCase = true) || 
-                             (tx.note?.contains(searchQuery, ignoreCase = true) ?: false)
+            val matchesQuery = tx.category.contains(searchQuery, ignoreCase = true) ||
+                    (tx.note?.contains(searchQuery, ignoreCase = true) ?: false)
             matchesType && matchesQuery
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBg)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
-            // Title Header with Back button
+    Box(modifier = Modifier.fillMaxSize().background(DarkBg)) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            // Header
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBackClick) {
                     Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteText)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Transaction History",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = WhiteText
-                )
+                Column {
+                    Text(text = "Transaction History", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = WhiteText)
+                    Text(text = getFormattedMonthName(selectedMonth), style = MaterialTheme.typography.bodySmall, color = GreyText)
+                }
             }
 
-            // Search Bar Input
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Search
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp)
-                    .testTag("input_search_transactions"),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("input_search_transactions"),
                 placeholder = { Text("Search category or note...", color = GreyText) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = GreyText) },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = TealPrimary,
-                    unfocusedBorderColor = DarkSurfaceElevated,
-                    focusedTextColor = WhiteText,
-                    unfocusedTextColor = WhiteText,
-                    focusedContainerColor = DarkSurface,
-                    unfocusedContainerColor = DarkSurface
+                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                    focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface
                 ),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true
+                shape = RoundedCornerShape(12.dp), singleLine = true
             )
 
-            // Categorical Filter pills
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilterChipItem(
-                    label = "All Logs",
-                    isSelected = filterType == "all",
-                    tag = "chip_filter_all",
-                    onClick = { filterType = "all" }
-                )
-                FilterChipItem(
-                    label = "Incomes",
-                    isSelected = filterType == "income",
-                    tag = "chip_filter_income",
-                    onClick = { filterType = "income" }
-                )
-                FilterChipItem(
-                    label = "Expenses",
-                    isSelected = filterType == "expense",
-                    tag = "chip_filter_expense",
-                    onClick = { filterType = "expense" }
-                )
+            // Filter chips
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterChipItem(label = "All Logs", isSelected = filterType == "all", tag = "chip_filter_all", onClick = { filterType = "all" })
+                FilterChipItem(label = "Incomes", isSelected = filterType == "income", tag = "chip_filter_income", onClick = { filterType = "income" })
+                FilterChipItem(label = "Expenses", isSelected = filterType == "expense", tag = "chip_filter_expense", onClick = { filterType = "expense" })
             }
 
             if (filteredList.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.FilterList,
-                            contentDescription = null,
-                            tint = GreyText,
-                            modifier = Modifier.size(48.dp)
-                        )
+                        Icon(imageVector = Icons.Default.FilterList, contentDescription = null, tint = GreyText, modifier = Modifier.size(48.dp))
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (searchQuery.isNotEmpty()) "No matches found" else "No transactions matching selected category type",
-                            color = GreyText,
-                            style = MaterialTheme.typography.bodyMedium
+                            text = if (searchQuery.isNotEmpty()) "No matches found" else "No transactions this month",
+                            color = GreyText, style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                     contentPadding = PaddingValues(bottom = 88.dp)
                 ) {
                     items(filteredList) { tx ->
                         TransactionCardItem(
                             transaction = tx,
-                            onEditClick = { onEditTransactionClick(tx.id) },
-                            currencyFormatter = currencyFormatter
+                            onEditClick = { onEditTransactionClick(tx.id) }
                         )
                     }
                 }
             }
         }
 
-        // Add Transaction Screen Floating Action Button
+        // FAB
         FloatingActionButton(
             onClick = { onAddTransactionClick() },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 80.dp, end = 16.dp)
-                .testTag("btn_add_transaction_fab"),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 80.dp, end = 16.dp).testTag("btn_add_transaction_fab"),
             containerColor = LavenderAccentCard,
             contentColor = ActivePillText
         ) {
@@ -187,28 +129,15 @@ fun TransactionsScreen(
 }
 
 @Composable
-fun FilterChipItem(
-    label: String,
-    isSelected: Boolean,
-    tag: String,
-    onClick: () -> Unit
-) {
+fun FilterChipItem(label: String, isSelected: Boolean, tag: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .background(
-                color = if (isSelected) TealPrimary else DarkSurface,
-                shape = RoundedCornerShape(20.dp)
-            )
+            .background(color = if (isSelected) TealPrimary else DarkSurface, shape = RoundedCornerShape(20.dp))
             .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 8.dp)
             .testTag(tag),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (isSelected) DarkBg else WhiteText
-        )
+        Text(text = label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isSelected) DarkBg else WhiteText)
     }
 }

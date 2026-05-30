@@ -1,7 +1,5 @@
 package com.example.utils
 
-import java.util.regex.Pattern
-
 data class ParsedReceipt(
     val amount: Double?,
     val date: String?,
@@ -13,37 +11,58 @@ data class ParsedReceipt(
 )
 
 object ReceiptParser {
-    private val amountRegex = Regex("""(?:TOTAL|AMOUNT|NET|DUE|RS|NPR|\$)\s*[:=]?\s*(\d+[.,]\d{2})""", RegexOption.IGNORE_CASE)
+    /**
+     * Amount regex — matches:
+     *  - Keywords (TOTAL, AMOUNT, etc.) followed by whole or decimal number
+     *  - NPR/RS prefix with whole or decimal: "NPR 1500", "Rs. 500", "Rs 250.50"
+     *  - Amounts with commas as thousands separator: "1,500" "1,500.00"
+     */
+    private val amountKeywordRegex = Regex(
+        """(?:TOTAL|AMOUNT|NET|DUE|PAID|RS\.?|NPR|NRS)\s*[:=]?\s*([\d,]+(?:[.,]\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
+
     private val dateRegex = Regex("""(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})|(\d{4})[/-](\d{1,2})[/-](\d{1,2})""")
-    
-    // New fields regex patterns
-    private val receiverRegex = Regex("""(?:RECEIVED BY|TO|MERCHANT|PAID TO|TRANSFER TO)\s*[:=]?\s*([A-Z0-9\s.]+)\b""", RegexOption.IGNORE_CASE)
+
+    private val receiverRegex = Regex(
+        """(?:RECEIVED BY|TO|MERCHANT|PAID TO|TRANSFER TO)\s*[:=]?\s*([A-Z0-9\s.]+)\b""",
+        RegexOption.IGNORE_CASE
+    )
     private val receiverIdRegex = Regex("""(?:ID|A\/C|MOBILE|NUMBER)\s*[:=]?\s*(\d{5,15})""", RegexOption.IGNORE_CASE)
     private val remarksRegex = Regex("""(?:REMARKS|DESCRIPTION|FOR|PURPOSE)\s*[:=]?\s*([A-Z0-9\s.,/]+)\b""", RegexOption.IGNORE_CASE)
-    private val paymentMethodRegex = Regex("""(?:PAYMENT|MODE|METHOD|VIA)\s*[:=]?\s*(ESEWA|FONEPAY|BANK|CASH|KHALTI|CONNECTIPS)\b""", RegexOption.IGNORE_CASE)
+    private val paymentMethodRegex = Regex(
+        """(?:PAYMENT|MODE|METHOD|VIA)\s*[:=]?\s*(ESEWA|FONEPAY|BANK|CASH|KHALTI|CONNECTIPS)\b""",
+        RegexOption.IGNORE_CASE
+    )
 
     fun parse(text: String): ParsedReceipt {
         val lines = text.lines().filter { it.isNotBlank() }
-        
+
         // 1. Merchant / Receiver Name
-        var merchant = lines.firstOrNull()?.trim()
+        val merchant = lines.firstOrNull()?.trim()
         val receiverMatch = receiverRegex.find(text)
         val receiverName = receiverMatch?.groupValues?.get(1)?.trim() ?: merchant
 
-        // 2. Amount
+        // 2. Amount — try keyword-anchored match first
         var amount: Double? = null
-        val amountMatch = amountRegex.find(text)
-        if (amountMatch != null) {
-            amount = amountMatch.groupValues[1].replace(",", ".").toDoubleOrNull()
-        } else {
-            val allAmounts = Regex("""\d+[.,]\d{2}""").findAll(text)
-                .map { it.value.replace(",", ".").toDoubleOrNull() }
-                .filterNotNull()
-                .toList()
-            amount = allAmounts.maxOrNull()
+        val keywordMatch = amountKeywordRegex.find(text)
+        if (keywordMatch != null) {
+            // Remove thousands commas then parse
+            amount = keywordMatch.groupValues[1].replace(",", "").replace(",", ".").toDoubleOrNull()
         }
 
-        // 3. Date (Enforce YYYY-MM-DD)
+        // Fallback: find all plausible numeric amounts (avoid phone numbers by capping digits)
+        if (amount == null) {
+            val candidates = Regex("""(?<!\d)(\d{1,6}(?:[.,]\d{2})?)(?!\d)""")
+                .findAll(text)
+                .mapNotNull { it.groupValues[1].replace(",", "").toDoubleOrNull() }
+                .filter { it > 0 }
+                .toList()
+            // Pick the largest value that's reasonably an amount (not a year/date component)
+            amount = candidates.filter { it < 10_000_000 }.maxOrNull()
+        }
+
+        // 3. Date → enforce YYYY-MM-DD
         val dateMatch = dateRegex.find(text)
         var formattedDate: String? = null
         if (dateMatch != null) {
@@ -55,16 +74,17 @@ object ReceiptParser {
             val g6 = dateMatch.groupValues[6]
 
             formattedDate = if (g4.isNotEmpty()) {
+                // Already YYYY-MM-DD or YYYY/MM/DD
                 "${g4}-${g5.padStart(2, '0')}-${g6.padStart(2, '0')}"
             } else {
                 var year = g3
                 if (year.length == 2) year = "20$year"
-                // Assuming DD-MM-YYYY or MM-DD-YYYY. Default to DD-MM-YYYY
+                // Treat as DD-MM-YYYY (most common on Nepali receipts)
                 "${year}-${g2.padStart(2, '0')}-${g1.padStart(2, '0')}"
             }
         }
 
-        // 4. New Fields
+        // 4. Extended fields
         val receiverId = receiverIdRegex.find(text)?.groupValues?.get(1)?.trim()
         val remarks = remarksRegex.find(text)?.groupValues?.get(1)?.trim()
         val paymentMethod = paymentMethodRegex.find(text)?.groupValues?.get(1)?.trim()

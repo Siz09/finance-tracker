@@ -15,14 +15,19 @@ object ExportHelper {
         try {
             val file = File(context.cacheDir, "transactions_export_${System.currentTimeMillis()}.csv")
             val writer = FileWriter(file)
-            writer.append("ID,Type,Amount,Category,Date,Note,CreatedAt\n")
+            writer.append("ID,Type,Amount,Category,Date,Note,ReceiverName,ReceiverId,Remarks,PaymentMethod,ImagePath,CreatedAt\n")
             for (tx in transactions) {
                 val noteEscaped = tx.note?.replace("\"", "\"\"") ?: ""
-                writer.append("${tx.id},${tx.type},${tx.amount},\"${tx.category}\",${tx.date},\"$noteEscaped\",${tx.createdAt}\n")
+                val receiverNameEsc = tx.receiverName?.replace("\"", "\"\"") ?: ""
+                val receiverIdEsc = tx.receiverId?.replace("\"", "\"\"") ?: ""
+                val remarksEsc = tx.remarks?.replace("\"", "\"\"") ?: ""
+                val paymentMethodEsc = tx.paymentMethod?.replace("\"", "\"\"") ?: ""
+                val imagePathEsc = tx.imagePath?.replace("\"", "\"\"") ?: ""
+                writer.append("${tx.id},${tx.type},${tx.amount},\"${tx.category}\",${tx.date},\"$noteEscaped\",\"$receiverNameEsc\",\"$receiverIdEsc\",\"$remarksEsc\",\"$paymentMethodEsc\",\"$imagePathEsc\",${tx.createdAt}\n")
             }
             writer.flush()
             writer.close()
-            return FileProvider.getUriForFile(context, "com.aistudio.financetracker.axpdky.fileprovider", file)
+            return FileProvider.getUriForFile(context, "com.example.fileprovider", file)
         } catch (e: Exception) {
             e.printStackTrace()
             return null
@@ -101,7 +106,7 @@ object ExportHelper {
             writer.write(sb.toString())
             writer.flush()
             writer.close()
-            return FileProvider.getUriForFile(context, "com.aistudio.financetracker.axpdky.fileprovider", file)
+            return FileProvider.getUriForFile(context, "com.example.fileprovider", file)
         } catch (e: Exception) {
             e.printStackTrace()
             return null

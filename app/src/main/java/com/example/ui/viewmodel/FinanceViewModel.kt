@@ -138,30 +138,32 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     }
 
     fun updateTransaction(
-        id: Int, 
-        type: String, 
-        amount: Double, 
-        category: String, 
-        date: String, 
-        note: String?, 
+        id: Int,
+        type: String,
+        amount: Double,
+        category: String,
+        date: String,
+        note: String?,
         imagePath: String?,
         receiverName: String? = null,
         receiverId: String? = null,
         remarks: String? = null,
         paymentMethod: String? = null
     ) {
+        // Normalize date format
+        val normalizedDate = date.replace("/", "-")
         viewModelScope.launch {
             val existing = repository.getTransactionById(id) ?: return@launch
             if (existing.imagePath != null && existing.imagePath != imagePath) {
                 FileStorageHelper.deleteImage(existing.imagePath)
             }
-            repository.insertTransaction(
+            repository.updateTransaction(
                 Transaction(
                     id = id,
                     type = type,
                     amount = amount,
                     category = category,
-                    date = date,
+                    date = normalizedDate,
                     note = note,
                     imagePath = imagePath,
                     receiverName = receiverName,
@@ -207,7 +209,8 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     fun saveSavingsGoal(target: Double) {
         viewModelScope.launch {
             val currentMonth = selectedMonth.value
-            val existing = repository.getSavingsGoalForMonth(currentMonth).firstOrNull() // Quick look
+            // Use proper suspend DAO query instead of firstOrNull() on Flow
+            val existing = repository.getSavingsGoalForMonthSuspend(currentMonth)
             val newGoal = if (existing != null) {
                 existing.copy(target = target)
             } else {

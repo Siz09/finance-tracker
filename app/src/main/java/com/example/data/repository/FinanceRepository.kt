@@ -20,6 +20,10 @@ class FinanceRepository(private val financeDao: FinanceDao) {
         financeDao.insertTransaction(transaction)
     }
 
+    suspend fun updateTransaction(transaction: Transaction) {
+        financeDao.updateTransaction(transaction)
+    }
+
     suspend fun deleteTransaction(id: Int) {
         val transaction = financeDao.getTransactionById(id)
         if (transaction != null) {
@@ -52,6 +56,10 @@ class FinanceRepository(private val financeDao: FinanceDao) {
 
     fun getSavingsGoalForMonth(month: String): Flow<SavingsGoal?> {
         return financeDao.getSavingsGoalForMonth(month)
+    }
+
+    suspend fun getSavingsGoalForMonthSuspend(month: String): SavingsGoal? {
+        return financeDao.getSavingsGoalForMonthSuspend(month)
     }
 
     suspend fun insertSavingsGoal(savingsGoal: SavingsGoal) {
