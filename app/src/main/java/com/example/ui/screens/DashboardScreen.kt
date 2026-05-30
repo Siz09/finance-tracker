@@ -1,6 +1,14 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -66,17 +74,25 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxSize().background(DarkBg).padding(horizontal = 16.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // Month Selector Ribbon (Paradigm B)
+            // Month Selector Ribbon (Paradigm B - Collapsible & Expandable)
             item {
+                var isExpanded by remember { mutableStateOf(false) }
+
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp)
+                        .animateContentSize(animationSpec = tween(300)),
                     colors = CardDefaults.cardColors(containerColor = DarkSurface),
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                        // Top Row: Info Title & Year Dropdown Trigger
+                        // Top Row: Info Title & Expansion Toggle Button
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isExpanded = !isExpanded }
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -88,96 +104,123 @@ fun DashboardScreen(
                                     color = WhiteText
                                 )
                                 Text(
-                                    text = "Monthly Overview",
+                                    text = if (isExpanded) "Tap to collapse ▴" else "Tap to change month ▾",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = GreyText
+                                    color = TealPrimary,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
 
-                            // Year dropdown trigger
-                            Box {
-                                Row(
-                                    modifier = Modifier
-                                        .background(DarkSurfaceElevated, RoundedCornerShape(10.dp))
-                                        .clickable { yearMenuExpanded = true }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(
-                                        text = currentYear,
-                                        color = TealPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = "Select Year",
-                                        tint = TealPrimary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-
-                                DropdownMenu(
-                                    expanded = yearMenuExpanded,
-                                    onDismissRequest = { yearMenuExpanded = false },
-                                    modifier = Modifier.background(DarkSurfaceElevated)
-                                ) {
-                                    yearsList.forEach { yr ->
-                                        DropdownMenuItem(
-                                            text = { Text(text = yr, color = WhiteText, fontWeight = FontWeight.Bold) },
-                                            onClick = {
-                                                yearMenuExpanded = false
-                                                val monthStr = String.format("%02d", currentMonthIndex + 1)
-                                                viewModel.selectedMonth.value = "$yr-$monthStr"
-                                            }
+                            // Year dropdown trigger (Only visible when expanded)
+                            if (isExpanded) {
+                                Box {
+                                    Row(
+                                        modifier = Modifier
+                                            .background(DarkSurfaceElevated, RoundedCornerShape(10.dp))
+                                            .clickable { yearMenuExpanded = true }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = currentYear,
+                                            color = TealPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = "Select Year",
+                                            tint = TealPrimary,
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
+
+                                    DropdownMenu(
+                                        expanded = yearMenuExpanded,
+                                        onDismissRequest = { yearMenuExpanded = false },
+                                        modifier = Modifier.background(DarkSurfaceElevated)
+                                    ) {
+                                        yearsList.forEach { yr ->
+                                            DropdownMenuItem(
+                                                text = { Text(text = yr, color = WhiteText, fontWeight = FontWeight.Bold) },
+                                                onClick = {
+                                                    yearMenuExpanded = false
+                                                    val monthStr = String.format("%02d", currentMonthIndex + 1)
+                                                    viewModel.selectedMonth.value = "$yr-$monthStr"
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Calendar visual icon in collapsed state
+                                Box(
+                                    modifier = Modifier
+                                        .background(DarkSurfaceElevated, RoundedCornerShape(10.dp))
+                                        .padding(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarMonth,
+                                        contentDescription = "Expand Calendar Selector",
+                                        tint = TealPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Horizontally scrollable Months Ribbon
-                        val monthsList = listOf(
-                            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-                        )
-                        val listState = rememberLazyListState()
-
-                        // Auto-scroll the selected month to the center when selectedMonth changes
-                        LaunchedEffect(currentMonthIndex) {
-                            listState.animateScrollToItem(maxOf(0, currentMonthIndex - 2))
-                        }
-
-                        LazyRow(
-                            state = listState,
-                            modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        // Smooth expandable slide and fade animation for Month Ribbon
+                        AnimatedVisibility(
+                            visible = isExpanded,
+                            enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+                            exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
                         ) {
-                            itemsIndexed(monthsList) { idx, mth ->
-                                val isSelected = idx == currentMonthIndex
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            if (isSelected) TealPrimary else DarkSurfaceElevated,
-                                            RoundedCornerShape(12.dp)
-                                        )
-                                        .clickable {
-                                            val monthStr = String.format("%02d", idx + 1)
-                                            viewModel.selectedMonth.value = "$currentYear-$monthStr"
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
+                            Column {
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Horizontally scrollable Months Ribbon
+                                val monthsList = listOf(
+                                    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                                )
+                                val listState = rememberLazyListState()
+
+                                // Auto-scroll selected month to the center when selectedMonth changes
+                                LaunchedEffect(currentMonthIndex) {
+                                    listState.animateScrollToItem(maxOf(0, currentMonthIndex - 2))
+                                }
+
+                                LazyRow(
+                                    state = listState,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text(
-                                        text = mth,
-                                        color = if (isSelected) DarkBg else WhiteText,
-                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                        fontSize = 14.sp
-                                    )
+                                    itemsIndexed(monthsList) { idx, mth ->
+                                        val isSelected = idx == currentMonthIndex
+                                        Box(
+                                            modifier = Modifier
+                                                .background(
+                                                    if (isSelected) TealPrimary else DarkSurfaceElevated,
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable {
+                                                    val monthStr = String.format("%02d", idx + 1)
+                                                    viewModel.selectedMonth.value = "$currentYear-$monthStr"
+                                                    isExpanded = false // Collapse card on selection
+                                                }
+                                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = mth,
+                                                color = if (isSelected) DarkBg else WhiteText,
+                                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                                fontSize = 14.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -330,25 +373,34 @@ fun DashboardScreen(
                 }
             }
 
-            if (transactions.isEmpty()) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).clickable { onNavigateToTransactions() },
-                        colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Icon(imageVector = Icons.Default.AddChart, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(40.dp))
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(text = "No transactions recorded yet.", color = WhiteText, fontWeight = FontWeight.Bold)
-                            Text(text = "Tap + to start logging your first transaction!", color = GreyText, fontSize = 12.sp)
+            item {
+                AnimatedContent(
+                    targetState = transactions,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(220))
+                    }
+                ) { targetList ->
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        if (targetList.isEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).clickable { onNavigateToTransactions() },
+                                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                    Icon(imageVector = Icons.Default.AddChart, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(40.dp))
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(text = "No transactions recorded yet.", color = WhiteText, fontWeight = FontWeight.Bold)
+                                    Text(text = "Tap + to start logging your first transaction!", color = GreyText, fontSize = 12.sp)
+                                }
+                            }
+                        } else {
+                            val recents = targetList.take(4)
+                            recents.forEach { tx ->
+                                TransactionCardItem(transaction = tx, onEditClick = { onEditTransaction(tx.id) })
+                            }
                         }
                     }
-                }
-            } else {
-                val recents = transactions.take(4)
-                items(recents) { tx ->
-                    TransactionCardItem(transaction = tx, onEditClick = { onEditTransaction(tx.id) })
                 }
             }
         }
