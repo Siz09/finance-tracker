@@ -3,6 +3,8 @@ package com.example.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -20,6 +22,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -74,7 +77,7 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxSize().background(DarkBg).padding(horizontal = 16.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // Month Selector Ribbon (Paradigm B - Collapsible & Expandable)
+            // Month Selector Ribbon (Paradigm B - Collapsible & Expandable with custom ripples & animations)
             item {
                 var isExpanded by remember { mutableStateOf(false) }
 
@@ -82,32 +85,54 @@ fun DashboardScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 12.dp)
-                        .animateContentSize(animationSpec = tween(300)),
+                        .animateContentSize(
+                            animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)
+                        ),
                     colors = CardDefaults.cardColors(containerColor = DarkSurface),
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                        // Top Row: Info Title & Expansion Toggle Button
+                        // Top Row: Info Title & Expansion Toggle Button (With custom bounded rounded ripple)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                                .clip(RoundedCornerShape(12.dp))
                                 .clickable { isExpanded = !isExpanded }
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = getFormattedMonthName(selectedMonth),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = WhiteText
-                                )
-                                Text(
-                                    text = if (isExpanded) "Tap to collapse ▴" else "Tap to change month ▾",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TealPrimary,
-                                    fontWeight = FontWeight.Bold
+                            val rotationState by animateFloatAsState(
+                                targetValue = if (isExpanded) 180f else 0f,
+                                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                                label = "caret_rotation"
+                            )
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Column {
+                                    Text(
+                                        text = getFormattedMonthName(selectedMonth),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = WhiteText
+                                    )
+                                    Text(
+                                        text = if (isExpanded) "Tap to collapse" else "Tap to change month",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = GreyText
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = TealPrimary,
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .graphicsLayer(rotationZ = rotationState)
                                 )
                             }
 
@@ -173,8 +198,8 @@ fun DashboardScreen(
                         // Smooth expandable slide and fade animation for Month Ribbon
                         AnimatedVisibility(
                             visible = isExpanded,
-                            enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
-                            exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
+                            enter = expandVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(durationMillis = 200)),
+                            exit = shrinkVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(durationMillis = 200))
                         ) {
                             Column {
                                 Spacer(modifier = Modifier.height(16.dp))
