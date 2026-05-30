@@ -52,6 +52,19 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+val CategoryColors = listOf(
+    TealPrimary,
+    MintIncome,
+    Color(0xFFFFB703),
+    Color(0xFFFB8500),
+    Color(0xFF219EBC),
+    Color(0xFF8338EC),
+    Color(0xFFFF006E),
+    Color(0xFF3A86C8),
+    Color(0xFF14FFEC),
+    Color(0xFF38EF7D)
+)
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -452,13 +465,22 @@ fun DashboardScreen(
                             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 DonutChartSection(categorySums, totalExpenseSum)
                                 Spacer(modifier = Modifier.height(16.dp))
-                                categorySums.forEach { (cat, sum) ->
+                                categorySums.keys.forEachIndexed { index, cat ->
+                                    val sum = categorySums[cat] ?: 0.0
+                                    val color = CategoryColors[index % CategoryColors.size]
                                     val percent = (sum / totalExpenseSum * 100).toInt()
                                     val emoji = Category.getIcon(cat, "expense")
                                     val budgetLimit = budgets.firstOrNull { it.category.equals(cat, true) }?.monthlyLimit
                                     val budgetWarning = budgetLimit != null && sum >= (budgetLimit * 0.8)
                                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                            // Beautiful color matching chart legend indicator
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .background(color = color, shape = CircleShape)
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
                                             Text(text = emoji, fontSize = 20.sp)
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Column {
@@ -709,7 +731,6 @@ fun DashboardScreen(
 
 @Composable
 fun DonutChartSection(categorySums: Map<String, Double>, totalExpenseSum: Double) {
-    val listColors = listOf(TealPrimary, MintIncome, Color(0xFFFFB703), Color(0xFFFB8500), Color(0xFF219EBC), Color(0xFF8338EC), Color(0xFFFF006E), Color(0xFF3A86C8), Color(0xFF14FFEC), Color(0xFF38EF7D))
     var animTriggered by remember { mutableStateOf(false) }
     val progress by animateFloatAsState(
         targetValue = if (animTriggered) 1f else 0f,
@@ -728,7 +749,7 @@ fun DonutChartSection(categorySums: Map<String, Double>, totalExpenseSum: Double
             var colorIdx = 0
             categorySums.forEach { (_, amount) ->
                 val sweep = (amount / totalExpenseSum * 360f).toFloat()
-                val color = listColors[colorIdx % listColors.size]
+                val color = CategoryColors[colorIdx % CategoryColors.size]
                 drawArc(color = color, startAngle = currentAngle, sweepAngle = sweep * progress, useCenter = false, style = Stroke(width = 24.dp.toPx()))
                 currentAngle += sweep
                 colorIdx++
