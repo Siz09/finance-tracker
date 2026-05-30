@@ -4,13 +4,16 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -77,35 +80,45 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxSize().background(DarkBg).padding(horizontal = 16.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // Month Selector Ribbon (Paradigm B - Collapsible & Expandable with custom ripples & animations)
+            // Month Selector Ribbon (Paradigm B - Collapsible & Expandable with zero click highlight & spring physics)
             item {
                 var isExpanded by remember { mutableStateOf(false) }
+                val interactionSource = remember { MutableInteractionSource() }
 
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 12.dp)
                         .animateContentSize(
-                            animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
                         ),
                     colors = CardDefaults.cardColors(containerColor = DarkSurface),
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                        // Top Row: Info Title & Expansion Toggle Button (With custom bounded rounded ripple)
+                        // Top Row: Info Title & Expansion Toggle Button (With completely disabled click highlight/indication)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { isExpanded = !isExpanded }
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                                .clickable(
+                                    interactionSource = interactionSource,
+                                    indication = null // Completely removes any touch splash/ripple highlights
+                                ) {
+                                    isExpanded = !isExpanded
+                                }
+                                .padding(horizontal = 20.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val rotationState by animateFloatAsState(
                                 targetValue = if (isExpanded) 180f else 0f,
-                                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                ),
                                 label = "caret_rotation"
                             )
 
@@ -198,8 +211,18 @@ fun DashboardScreen(
                         // Smooth expandable slide and fade animation for Month Ribbon
                         AnimatedVisibility(
                             visible = isExpanded,
-                            enter = expandVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(durationMillis = 200)),
-                            exit = shrinkVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(durationMillis = 200))
+                            enter = fadeIn(animationSpec = tween(150, delayMillis = 80)) + expandVertically(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                            ),
+                            exit = shrinkVertically(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                )
+                            ) + fadeOut(animationSpec = tween(100))
                         ) {
                             Column {
                                 Spacer(modifier = Modifier.height(16.dp))
