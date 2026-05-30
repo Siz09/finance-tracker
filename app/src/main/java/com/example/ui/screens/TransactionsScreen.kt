@@ -260,9 +260,9 @@ fun TransactionsScreen(
                             ) {
                                 itemsIndexed(monthsList) { idx, mth ->
                                     val isSelected = idx == currentMonthIndex
-                                    val systemCal = Calendar.getInstance()
-                                    val systemYear = systemCal.get(Calendar.YEAR).toString()
-                                    val systemMonthIdx = systemCal.get(Calendar.MONTH)
+                                    val systemCal = java.util.Calendar.getInstance()
+                                    val systemYear = systemCal.get(java.util.Calendar.YEAR).toString()
+                                    val systemMonthIdx = systemCal.get(java.util.Calendar.MONTH)
                                     val isSystemTodayMonth = (currentYear == systemYear && idx == systemMonthIdx)
 
                                     Box(
@@ -291,7 +291,7 @@ fun TransactionsScreen(
                                                 Box(
                                                     modifier = Modifier
                                                         .size(4.dp)
-                                                        .background(color = if (isSelected) DarkBg else TealPrimary, shape = CircleShape)
+                                                        .background(color = if (isSelected) DarkBg else TealPrimary, shape = androidx.compose.foundation.shape.CircleShape)
                                                 )
                                             }
                                         }
