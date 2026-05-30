@@ -11,6 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -24,7 +27,7 @@ import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
 import com.example.utils.CurrencyFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun BudgetScreen(
     viewModel: FinanceViewModel,
@@ -96,7 +99,7 @@ fun BudgetScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
-                items(Category.EXPENSES) { cat ->
+                items(Category.EXPENSES, key = { it.name }) { cat ->
                     val limitBudget = budgets.firstOrNull { it.category.equals(cat.name, true) }
                     val spent = categorySpentMap[cat.name] ?: 0.0
                     val limitVal = limitBudget?.monthlyLimit ?: 0.0
@@ -104,6 +107,12 @@ fun BudgetScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .animateItemPlacement(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                            )
                             .clickable {
                                 selectedCategoryForEdit = cat.name
                                 inputLimitVal = if (limitVal > 0.0) limitVal.toString() else ""
@@ -168,12 +177,18 @@ fun BudgetScreen(
                                 val progressPercent = (spent / limitVal * 100).toInt()
                                 val warningThreshold = spent >= (limitVal * 0.8)
 
+                                val progressAnim by animateFloatAsState(
+                                    targetValue = progress,
+                                    animationSpec = tween(durationMillis = 750, easing = FastOutSlowInEasing),
+                                    label = "budget_limit_progress"
+                                )
+
                                 Spacer(modifier = Modifier.height(10.dp))
 
                                 // Progress tracker indicator bar
                                 val trackCol = if (spent > limitVal) RubyExpense else if (warningThreshold) AmberWarning else TealPrimary
                                 LinearProgressIndicator(
-                                    progress = { progress },
+                                    progress = { progressAnim },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(8.dp),

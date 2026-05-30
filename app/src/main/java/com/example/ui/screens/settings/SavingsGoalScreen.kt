@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -129,10 +131,15 @@ fun SavingsGoalScreen(
                     if (goalValue > 0.0) {
                         val progressNormalized = if (netBalance <= 0) 0f else (netBalance / goalValue).toFloat().coerceIn(0f, 1f)
                         val progressPercent = if (netBalance <= 0) 0 else (netBalance / goalValue * 100).toInt()
+                        val progressAnim by animateFloatAsState(
+                            targetValue = progressNormalized,
+                            animationSpec = tween(durationMillis = 750, easing = FastOutSlowInEasing),
+                            label = "savings_goal_progress"
+                        )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(text = "Achieved: $progressPercent% of savings target!", fontSize = 13.sp, color = GreyText, fontWeight = FontWeight.Bold)
                         LinearProgressIndicator(
-                            progress = { progressNormalized },
+                            progress = { progressAnim },
                             modifier = Modifier.fillMaxWidth().height(10.dp),
                             color = MintIncome, trackColor = DarkSurfaceElevated,
                             strokeCap = androidx.compose.ui.graphics.StrokeCap.Round

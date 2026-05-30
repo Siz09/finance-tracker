@@ -146,7 +146,15 @@ fun MainAppContainer() {
             composable("dashboard") {
                 DashboardScreen(
                     viewModel = viewModel,
-                    onNavigateToTransactions = { navController.navigate("transactions") },
+                    onNavigateToTransactions = {
+                        navController.navigate("transactions") {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onAddTransactionClick = { navController.navigate("add_transaction") },
                     onEditTransaction = { id -> navController.navigate("edit_transaction/$id") }
                 )
@@ -154,9 +162,11 @@ fun MainAppContainer() {
             composable("transactions") {
                 TransactionsScreen(
                     viewModel = viewModel,
-                    onBackClick = { navController.navigate("dashboard") {
-                        popUpTo("dashboard") { inclusive = true }
-                    }},
+                    onBackClick = {
+                        navController.navigate("dashboard") {
+                            popUpTo("dashboard") { inclusive = true }
+                        }
+                    },
                     onAddTransactionClick = { navController.navigate("add_transaction") },
                     onEditTransactionClick = { id -> navController.navigate("edit_transaction/$id") }
                 )

@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import java.util.Calendar
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -50,6 +52,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: FinanceViewModel,
@@ -59,11 +62,42 @@ fun DashboardScreen(
 ) {
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val transactions by viewModel.currentMonthTransactions.collectAsState()
+    val allTransactions by viewModel.allTransactions.collectAsState()
     val totalIncome by viewModel.totalIncome.collectAsState()
     val totalExpense by viewModel.totalExpense.collectAsState()
     val netBalance by viewModel.netBalance.collectAsState()
     val budgets by viewModel.budgets.collectAsState()
     val savingsGoal by viewModel.savingsGoal.collectAsState()
+
+    var showSeeAllSheet by remember { mutableStateOf(false) }
+
+    val recentLogs = remember(allTransactions) {
+        allTransactions.filter { tx ->
+            try {
+                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val txDate = sdf.parse(tx.date) ?: return@filter false
+                
+                val todayCal = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }
+                
+                val limitCal = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, -7)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                
+                !txDate.before(limitCal.time) && !txDate.after(todayCal.time)
+            } catch (e: Exception) {
+                false
+            }
+        }.sortedByDescending { it.date }
+    }
 
     val expenseTransactions = remember(transactions) { transactions.filter { it.type == "expense" } }
     val categorySums = remember(expenseTransactions) {
@@ -358,13 +392,18 @@ fun DashboardScreen(
                                 Spacer(modifier = Modifier.height(10.dp))
                                 val progressNorm = if (netBalance <= 0) 0f else (netBalance / goalValue).toFloat().coerceIn(0f, 1f)
                                 val progressPct = if (netBalance <= 0) 0 else (netBalance / goalValue * 100).toInt()
+                                val progressAnim by animateFloatAsState(
+                                    targetValue = progressNorm,
+                                    animationSpec = tween(durationMillis = 750, easing = FastOutSlowInEasing),
+                                    label = "dashboard_savings_progress"
+                                )
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text(text = "Saved: ${CurrencyFormatter.format(netBalance.coerceAtLeast(0.0))}", color = GreyText, fontSize = 13.sp)
                                     Text(text = "Target: ${CurrencyFormatter.format(goalValue)}", color = GreyText, fontSize = 13.sp)
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 LinearProgressIndicator(
-                                    progress = { progressNorm },
+                                    progress = { progressAnim },
                                     modifier = Modifier.fillMaxWidth().height(8.dp),
                                     color = if (netBalance >= goalValue) MintIncome else TealPrimary,
                                     trackColor = DarkSurfaceElevated,
@@ -445,15 +484,31 @@ fun DashboardScreen(
 
             // Recent transactions
             item {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "Recent Logs (${getFormattedMonthName(selectedMonth)})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = WhiteText)
-                    Text(text = "See All", color = TealPrimary, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { onNavigateToTransactions() }.testTag("btn_see_all_transactions"))
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Recent Logs (Last 7 Days)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = WhiteText
+                    )
+                    Text(
+                        text = "See All",
+                        color = TealPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clickable { showSeeAllSheet = true }
+                            .testTag("btn_see_all_transactions")
+                    )
                 }
             }
 
             item {
                 AnimatedContent(
-                    targetState = transactions,
+                    targetState = recentLogs,
                     transitionSpec = {
                         fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(220))
                     }
@@ -461,19 +516,26 @@ fun DashboardScreen(
                     Column(modifier = Modifier.fillMaxWidth()) {
                         if (targetList.isEmpty()) {
                             Card(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).clickable { onNavigateToTransactions() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp)
+                                    .clickable { onAddTransactionClick() },
                                 colors = CardDefaults.cardColors(containerColor = DarkSurface),
                                 shape = RoundedCornerShape(16.dp)
                             ) {
-                                Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
                                     Icon(imageVector = Icons.Default.AddChart, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(40.dp))
                                     Spacer(modifier = Modifier.height(12.dp))
-                                    Text(text = "No transactions recorded yet.", color = WhiteText, fontWeight = FontWeight.Bold)
-                                    Text(text = "Tap + to start logging your first transaction!", color = GreyText, fontSize = 12.sp)
+                                    Text(text = "No logs in the last 7 days.", color = WhiteText, fontWeight = FontWeight.Bold)
+                                    Text(text = "Tap + to log a transaction!", color = GreyText, fontSize = 12.sp)
                                 }
                             }
                         } else {
-                            val recents = targetList.take(4)
+                            val recents = targetList.take(6)
                             recents.forEach { tx ->
                                 TransactionCardItem(transaction = tx, onEditClick = { onEditTransaction(tx.id) })
                             }
@@ -486,11 +548,165 @@ fun DashboardScreen(
         // Quick-add FAB on Dashboard
         FloatingActionButton(
             onClick = { onAddTransactionClick() },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp, end = 16.dp).testTag("btn_dashboard_add_transaction"),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 16.dp, end = 16.dp)
+                .testTag("btn_dashboard_add_transaction"),
             containerColor = TealPrimary,
             contentColor = DarkBg
         ) {
             Icon(imageVector = Icons.Default.Add, contentDescription = "Add Transaction")
+        }
+
+        // Beautiful Full-Featured See All Bottom Sheet
+        if (showSeeAllSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showSeeAllSheet = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = DarkBg,
+                scrimColor = Color.Black.copy(alpha = 0.65f),
+                dragHandle = { BottomSheetDefaults.DragHandle(color = GreyText) }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    // Header of sheet
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "All Logs of Month",
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                                color = WhiteText
+                            )
+                            Text(
+                                text = getFormattedMonthName(selectedMonth),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TealPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        IconButton(
+                            onClick = { showSeeAllSheet = false },
+                            modifier = Modifier.background(DarkSurfaceElevated, CircleShape)
+                        ) {
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = WhiteText)
+                        }
+                    }
+
+                    var sheetFilterType by remember { mutableStateOf("all") }
+                    var sheetSearchQuery by remember { mutableStateOf("") }
+
+                    val sheetFilteredList = remember(transactions, sheetFilterType, sheetSearchQuery) {
+                        transactions.filter { tx ->
+                            val matchesType = when (sheetFilterType) {
+                                "income" -> tx.type == "income"
+                                "expense" -> tx.type == "expense"
+                                else -> true
+                            }
+                            val matchesQuery = tx.category.contains(sheetSearchQuery, ignoreCase = true) ||
+                                    (tx.note?.contains(sheetSearchQuery, ignoreCase = true) ?: false)
+                            matchesType && matchesQuery
+                        }
+                    }
+
+                    // Search Bar
+                    OutlinedTextField(
+                        value = sheetSearchQuery,
+                        onValueChange = { sheetSearchQuery = it },
+                        placeholder = { Text(text = "Search logs by note, category...", color = GreyText) },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = WhiteText,
+                            unfocusedTextColor = WhiteText,
+                            focusedBorderColor = TealPrimary,
+                            unfocusedBorderColor = DarkSurfaceElevated,
+                            containerColor = DarkSurface
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Search", tint = GreyText) }
+                    )
+
+                    // Filter chips
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val filterChips = listOf(
+                            Triple("all", "All Logs", Icons.Default.List),
+                            Triple("income", "Incomes", Icons.Default.TrendingUp),
+                            Triple("expense", "Expenses", Icons.Default.TrendingDown)
+                        )
+
+                        filterChips.forEach { (chipType, label, icon) ->
+                            val isSelected = sheetFilterType == chipType
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { sheetFilterType = chipType },
+                                label = { Text(text = label) },
+                                leadingIcon = { Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = if (chipType == "income") MintIncome else if (chipType == "expense") RubyExpense else TealPrimary,
+                                    selectedLabelColor = DarkBg,
+                                    selectedLeadingIconColor = DarkBg,
+                                    unfocusedContainerColor = DarkSurfaceElevated,
+                                    unfocusedLabelColor = WhiteText,
+                                    unfocusedLeadingIconColor = GreyText
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    selectedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Scrollable List
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 24.dp)
+                    ) {
+                        if (sheetFilteredList.isEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(imageVector = Icons.Default.Inbox, contentDescription = null, tint = GreyText, modifier = Modifier.size(48.dp))
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(text = "No matching records found", color = GreyText, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        } else {
+                            items(sheetFilteredList, key = { it.id }) { tx ->
+                                TransactionCardItem(
+                                    transaction = tx,
+                                    onEditClick = {
+                                        showSeeAllSheet = false
+                                        onEditTransaction(tx.id)
+                                    },
+                                    modifier = Modifier.animateItemPlacement(
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                            stiffness = Spring.StiffnessMediumLow
+                                        )
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -498,6 +714,18 @@ fun DashboardScreen(
 @Composable
 fun DonutChartSection(categorySums: Map<String, Double>, totalExpenseSum: Double) {
     val listColors = listOf(TealPrimary, MintIncome, Color(0xFFFFB703), Color(0xFFFB8500), Color(0xFF219EBC), Color(0xFF8338EC), Color(0xFFFF006E), Color(0xFF3A86C8), Color(0xFF14FFEC), Color(0xFF38EF7D))
+    var animTriggered by remember { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (animTriggered) 1f else 0f,
+        animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
+        label = "donut_chart_progress"
+    )
+    LaunchedEffect(categorySums) {
+        animTriggered = false
+        kotlinx.coroutines.delay(50)
+        animTriggered = true
+    }
+
     Box(modifier = Modifier.size(170.dp).padding(12.dp), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             var currentAngle = -90f
@@ -505,7 +733,7 @@ fun DonutChartSection(categorySums: Map<String, Double>, totalExpenseSum: Double
             categorySums.forEach { (_, amount) ->
                 val sweep = (amount / totalExpenseSum * 360f).toFloat()
                 val color = listColors[colorIdx % listColors.size]
-                drawArc(color = color, startAngle = currentAngle, sweepAngle = sweep, useCenter = false, style = Stroke(width = 24.dp.toPx()))
+                drawArc(color = color, startAngle = currentAngle, sweepAngle = sweep * progress, useCenter = false, style = Stroke(width = 24.dp.toPx()))
                 currentAngle += sweep
                 colorIdx++
             }
@@ -520,12 +748,13 @@ fun DonutChartSection(categorySums: Map<String, Double>, totalExpenseSum: Double
 @Composable
 fun TransactionCardItem(
     transaction: Transaction,
+    modifier: Modifier = Modifier,
     onEditClick: () -> Unit
 ) {
     val emoji = remember(transaction) { Category.getIcon(transaction.category, transaction.type) }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onEditClick() }.testTag("transaction_card_${transaction.id}"),
+        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onEditClick() }.testTag("transaction_card_${transaction.id}"),
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
         shape = RoundedCornerShape(12.dp)
     ) {
