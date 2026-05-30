@@ -67,6 +67,10 @@ fun TransactionFormScreen(
     var receiverId by remember { mutableStateOf<String?>(null) }
     var remarks by remember { mutableStateOf<String?>(null) }
     var paymentMethod by remember { mutableStateOf<String?>(null) }
+    var transactionCode by remember { mutableStateOf<String?>(null) }
+    var processedBy by remember { mutableStateOf<String?>(null) }
+    var purpose by remember { mutableStateOf<String?>(null) }
+    var initiatorName by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(transactionId) {
         if (transactionId != null && transactionId > 0) {
@@ -83,6 +87,10 @@ fun TransactionFormScreen(
                 receiverId = tx.receiverId
                 remarks = tx.remarks
                 paymentMethod = tx.paymentMethod
+                transactionCode = tx.transactionCode
+                processedBy = tx.processedBy
+                purpose = tx.purpose
+                initiatorName = tx.initiatorName
             }
         } else {
             initialCategory = Category.EXPENSES.first().name
@@ -124,10 +132,10 @@ fun TransactionFormScreen(
             val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
             recognizer.process(image)
                 .addOnSuccessListener { visionText ->
+                    android.util.Log.d("OCR_RAW", visionText.text)
                     val parsed = ReceiptParser.parse(visionText.text)
                     isScanning = false
                     if (parsed.amount != null || parsed.date != null || parsed.receiverName != null || parsed.paymentMethod != null) {
-                        // Present confirmation dialog instead of silent overwrites (Fix #16)
                         pendingOcrResult = parsed
                         showOcrConfirmationDialog = true
                     } else {
@@ -142,17 +150,6 @@ fun TransactionFormScreen(
         }
     }
 
-    // Storage/Gallery permission checks (Fix #10)
-    val galleryPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            galleryLauncher.launch("image/*")
-        } else {
-            Toast.makeText(context, "Gallery permission is required to select receipt images", Toast.LENGTH_LONG).show()
-        }
-    }
-
     // Gallery launcher
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -163,6 +160,17 @@ fun TransactionFormScreen(
                 photoPathState = saved
                 processImageForOcr(saved)
             }
+        }
+    }
+
+    // Storage/Gallery permission checks (Fix #10)
+    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            galleryLauncher.launch("image/*")
+        } else {
+            Toast.makeText(context, "Gallery permission is required to select receipt images", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -401,7 +409,7 @@ fun TransactionFormScreen(
                         )
                     }
 
-                    AnimatedVisibility(visible = showMetadataFields || receiverName != null || receiverId != null || remarks != null || paymentMethod != null) {
+                    AnimatedVisibility(visible = showMetadataFields || receiverName != null || receiverId != null || remarks != null || paymentMethod != null || transactionCode != null || processedBy != null || purpose != null || initiatorName != null) {
                         Column(
                             modifier = Modifier.padding(top = 14.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -458,6 +466,66 @@ fun TransactionFormScreen(
                                 onValueChange = { remarks = it.ifBlank { null } },
                                 modifier = Modifier.fillMaxWidth().testTag("input_remarks"),
                                 placeholder = { Text("e.g. Funds transfer details", color = GreyText) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                                    focusedContainerColor = DarkBg, unfocusedContainerColor = DarkBg
+                                ),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+
+                            // Transaction Code
+                            Text(text = "Transaction Code", style = MaterialTheme.typography.labelMedium, color = GreyText)
+                            OutlinedTextField(
+                                value = transactionCode ?: "",
+                                onValueChange = { transactionCode = it.ifBlank { null } },
+                                modifier = Modifier.fillMaxWidth().testTag("input_transaction_code"),
+                                placeholder = { Text("e.g. 16D37HB", color = GreyText) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                                    focusedContainerColor = DarkBg, unfocusedContainerColor = DarkBg
+                                ),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+
+                            // Processed By
+                            Text(text = "Processed By", style = MaterialTheme.typography.labelMedium, color = GreyText)
+                            OutlinedTextField(
+                                value = processedBy ?: "",
+                                onValueChange = { processedBy = it.ifBlank { null } },
+                                modifier = Modifier.fillMaxWidth().testTag("input_processed_by"),
+                                placeholder = { Text("e.g. 9844296224", color = GreyText) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                                    focusedContainerColor = DarkBg, unfocusedContainerColor = DarkBg
+                                ),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+
+                            // Purpose
+                            Text(text = "Purpose", style = MaterialTheme.typography.labelMedium, color = GreyText)
+                            OutlinedTextField(
+                                value = purpose ?: "",
+                                onValueChange = { purpose = it.ifBlank { null } },
+                                modifier = Modifier.fillMaxWidth().testTag("input_purpose"),
+                                placeholder = { Text("e.g. Personal Use", color = GreyText) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                                    focusedContainerColor = DarkBg, unfocusedContainerColor = DarkBg
+                                ),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+
+                            // Initiator Name
+                            Text(text = "Initiator Name", style = MaterialTheme.typography.labelMedium, color = GreyText)
+                            OutlinedTextField(
+                                value = initiatorName ?: "",
+                                onValueChange = { initiatorName = it.ifBlank { null } },
+                                modifier = Modifier.fillMaxWidth().testTag("input_initiator_name"),
+                                placeholder = { Text("e.g. Sijan Maharjan", color = GreyText) },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
                                     focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
@@ -551,9 +619,25 @@ fun TransactionFormScreen(
                     // Normalize date format
                     val normalizedDate = date.replace("/", "-")
                     if (isEditingMode && transactionId != null) {
-                        viewModel.updateTransaction(id = transactionId, type = type, amount = amtVal, category = category, date = normalizedDate, note = cleanNote, imagePath = photoPathState, receiverName = receiverName, receiverId = receiverId, remarks = remarks, paymentMethod = paymentMethod)
+                        viewModel.updateTransaction(
+                            id = transactionId, type = type, amount = amtVal,
+                            category = category, date = normalizedDate, note = cleanNote,
+                            imagePath = photoPathState, receiverName = receiverName,
+                            receiverId = receiverId, remarks = remarks,
+                            paymentMethod = paymentMethod, transactionCode = transactionCode,
+                            processedBy = processedBy, purpose = purpose,
+                            initiatorName = initiatorName
+                        )
                     } else {
-                        viewModel.addTransaction(type = type, amount = amtVal, category = category, date = normalizedDate, note = cleanNote, imagePath = photoPathState, receiverName = receiverName, receiverId = receiverId, remarks = remarks, paymentMethod = paymentMethod)
+                        viewModel.addTransaction(
+                            type = type, amount = amtVal, category = category,
+                            date = normalizedDate, note = cleanNote,
+                            imagePath = photoPathState, receiverName = receiverName,
+                            receiverId = receiverId, remarks = remarks,
+                            paymentMethod = paymentMethod, transactionCode = transactionCode,
+                            processedBy = processedBy, purpose = purpose,
+                            initiatorName = initiatorName
+                        )
                     }
                     onDismiss()
                 },
@@ -611,20 +695,50 @@ fun TransactionFormScreen(
                     }
                     if (ocr.receiverName != null) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Receiver/Shop:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text("Receiver:", color = GreyText, fontWeight = FontWeight.Bold)
                             Text(ocr.receiverName, color = WhiteText)
+                        }
+                    }
+                    if (ocr.receiverId != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("eSewa ID:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.receiverId, color = WhiteText, fontSize = 12.sp)
                         }
                     }
                     if (ocr.paymentMethod != null) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Payment Method:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text("Payment:", color = GreyText, fontWeight = FontWeight.Bold)
                             Text(ocr.paymentMethod, color = WhiteText)
+                        }
+                    }
+                    if (ocr.transactionCode != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Txn Code:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.transactionCode, color = WhiteText)
+                        }
+                    }
+                    if (ocr.purpose != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Purpose:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.purpose, color = WhiteText)
                         }
                     }
                     if (ocr.remarks != null) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Remarks:", color = GreyText, fontWeight = FontWeight.Bold)
                             Text(ocr.remarks, color = WhiteText)
+                        }
+                    }
+                    if (ocr.processedBy != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Processed By:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.processedBy, color = WhiteText)
+                        }
+                    }
+                    if (ocr.initiatorName != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Initiator:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.initiatorName, color = WhiteText)
                         }
                     }
                 }
@@ -638,6 +752,10 @@ fun TransactionFormScreen(
                         if (ocr.receiverId != null) receiverId = ocr.receiverId
                         if (ocr.remarks != null) remarks = ocr.remarks
                         if (ocr.paymentMethod != null) paymentMethod = ocr.paymentMethod
+                        if (ocr.transactionCode != null) transactionCode = ocr.transactionCode
+                        if (ocr.processedBy != null) processedBy = ocr.processedBy
+                        if (ocr.purpose != null) purpose = ocr.purpose
+                        if (ocr.initiatorName != null) initiatorName = ocr.initiatorName
 
                         // Auto-fill note intelligently if appropriate
                         if (!ocr.remarks.isNullOrBlank()) {

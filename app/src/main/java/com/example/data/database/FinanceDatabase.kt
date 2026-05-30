@@ -14,7 +14,7 @@ import com.example.data.model.Transaction
 
 @Database(
     entities = [Transaction::class, Budget::class, SavingsGoal::class, AppSetting::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class FinanceDatabase : RoomDatabase() {
@@ -37,6 +37,15 @@ abstract class FinanceDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN transactionCode TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN processedBy TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN purpose TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN initiatorName TEXT")
+            }
+        }
+
         fun getDatabase(context: Context): FinanceDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -44,7 +53,7 @@ abstract class FinanceDatabase : RoomDatabase() {
                     FinanceDatabase::class.java,
                     "finance_tracker_db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance

@@ -16,5 +16,10 @@ data class Transaction(
     val receiverId: String? = null,
     val remarks: String? = null,
     val paymentMethod: String? = null,
+    val transactionCode: String? = null,  // e.g. "16D37HB"
+    val processedBy: String? = null,       // e.g. phone number "9844296224"
+    val purpose: String? = null,           // e.g. "Personal Use"
+    val initiatorName: String? = null,     // e.g. "Sijan Maharjan"
     val createdAt: Long = System.currentTimeMillis()
 )
+

@@ -15,15 +15,19 @@ object ExportHelper {
         try {
             val file = File(context.cacheDir, "transactions_export_${System.currentTimeMillis()}.csv")
             val writer = FileWriter(file)
-            writer.append("ID,Type,Amount,Category,Date,Note,ReceiverName,ReceiverId,Remarks,PaymentMethod,ImagePath,CreatedAt\n")
+            writer.append("ID,Type,Amount,Category,Date,Note,ReceiverName,ReceiverId,Remarks,PaymentMethod,TransactionCode,ProcessedBy,Purpose,InitiatorName,ImagePath,CreatedAt\n")
             for (tx in transactions) {
-                val noteEscaped = tx.note?.replace("\"", "\"\"") ?: ""
-                val receiverNameEsc = tx.receiverName?.replace("\"", "\"\"") ?: ""
-                val receiverIdEsc = tx.receiverId?.replace("\"", "\"\"") ?: ""
-                val remarksEsc = tx.remarks?.replace("\"", "\"\"") ?: ""
-                val paymentMethodEsc = tx.paymentMethod?.replace("\"", "\"\"") ?: ""
-                val imagePathEsc = tx.imagePath?.replace("\"", "\"\"") ?: ""
-                writer.append("${tx.id},${tx.type},${tx.amount},\"${tx.category}\",${tx.date},\"$noteEscaped\",\"$receiverNameEsc\",\"$receiverIdEsc\",\"$remarksEsc\",\"$paymentMethodEsc\",\"$imagePathEsc\",${tx.createdAt}\n")
+                val noteEscaped       = tx.note?.replace("\"", "\"\"") ?: ""
+                val receiverNameEsc   = tx.receiverName?.replace("\"", "\"\"") ?: ""
+                val receiverIdEsc     = tx.receiverId?.replace("\"", "\"\"") ?: ""
+                val remarksEsc        = tx.remarks?.replace("\"", "\"\"") ?: ""
+                val paymentMethodEsc  = tx.paymentMethod?.replace("\"", "\"\"") ?: ""
+                val txnCodeEsc        = tx.transactionCode?.replace("\"", "\"\"") ?: ""
+                val processedByEsc    = tx.processedBy?.replace("\"", "\"\"") ?: ""
+                val purposeEsc        = tx.purpose?.replace("\"", "\"\"") ?: ""
+                val initiatorNameEsc  = tx.initiatorName?.replace("\"", "\"\"") ?: ""
+                val imagePathEsc      = tx.imagePath?.replace("\"", "\"\"") ?: ""
+                writer.append("${tx.id},${tx.type},${tx.amount},\"${tx.category}\",${tx.date},\"$noteEscaped\",\"$receiverNameEsc\",\"$receiverIdEsc\",\"$remarksEsc\",\"$paymentMethodEsc\",\"$txnCodeEsc\",\"$processedByEsc\",\"$purposeEsc\",\"$initiatorNameEsc\",\"$imagePathEsc\",${tx.createdAt}\n")
             }
             writer.flush()
             writer.close()
@@ -54,10 +58,14 @@ object ExportHelper {
                 val noteVal = if (tx.note == null) "null" else "\"$noteEscMap\""
                 val imgVal = if (tx.imagePath == null) "null" else "\"${tx.imagePath.replace("\\", "\\\\").replace("\"", "\\\"")}\""
                 
-                val recNameVal = if (tx.receiverName == null) "null" else "\"${tx.receiverName.replace("\"", "\\\"")}\""
-                val recIdVal = if (tx.receiverId == null) "null" else "\"${tx.receiverId.replace("\"", "\\\"")}\""
-                val remVal = if (tx.remarks == null) "null" else "\"${tx.remarks.replace("\"", "\\\"")}\""
-                val payVal = if (tx.paymentMethod == null) "null" else "\"${tx.paymentMethod.replace("\"", "\\\"")}\""
+                val recNameVal  = if (tx.receiverName == null)     "null" else "\"${tx.receiverName.replace("\"", "\\\"")}\""
+                val recIdVal    = if (tx.receiverId == null)        "null" else "\"${tx.receiverId.replace("\"", "\\\"")}\""
+                val remVal      = if (tx.remarks == null)           "null" else "\"${tx.remarks.replace("\"", "\\\"")}\""
+                val payVal      = if (tx.paymentMethod == null)     "null" else "\"${tx.paymentMethod.replace("\"", "\\\"")}\""
+                val txnCodeVal  = if (tx.transactionCode == null)   "null" else "\"${tx.transactionCode.replace("\"", "\\\"")}\""
+                val procByVal   = if (tx.processedBy == null)       "null" else "\"${tx.processedBy.replace("\"", "\\\"")}\""
+                val purposeVal  = if (tx.purpose == null)           "null" else "\"${tx.purpose.replace("\"", "\\\"")}\""
+                val initNameVal = if (tx.initiatorName == null)     "null" else "\"${tx.initiatorName.replace("\"", "\\\"")}\""
 
                 sb.append("    {\n")
                 sb.append("      \"id\": ${tx.id},\n")
@@ -71,6 +79,10 @@ object ExportHelper {
                 sb.append("      \"receiverId\": $recIdVal,\n")
                 sb.append("      \"remarks\": $remVal,\n")
                 sb.append("      \"paymentMethod\": $payVal,\n")
+                sb.append("      \"transactionCode\": $txnCodeVal,\n")
+                sb.append("      \"processedBy\": $procByVal,\n")
+                sb.append("      \"purpose\": $purposeVal,\n")
+                sb.append("      \"initiatorName\": $initNameVal,\n")
                 sb.append("      \"createdAt\": ${tx.createdAt}\n")
                 if (index < transactions.size - 1) {
                     sb.append("    },\n")

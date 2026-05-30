@@ -100,24 +100,26 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     }
 
     fun addTransaction(
-        type: String, 
-        amount: Double, 
-        category: String, 
-        date: String, 
-        note: String?, 
+        type: String,
+        amount: Double,
+        category: String,
+        date: String,
+        note: String?,
         imagePath: String?,
         receiverName: String? = null,
         receiverId: String? = null,
         remarks: String? = null,
-        paymentMethod: String? = null
+        paymentMethod: String? = null,
+        transactionCode: String? = null,
+        processedBy: String? = null,
+        purpose: String? = null,
+        initiatorName: String? = null
     ) {
-        // Ensure date is in YYYY-MM-DD format
         val normalizedDate = if (date.contains("/") && !date.contains("-")) {
             date.replace("/", "-")
         } else {
             date
         }
-
         viewModelScope.launch {
             repository.insertTransaction(
                 Transaction(
@@ -130,7 +132,11 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                     receiverName = receiverName,
                     receiverId = receiverId,
                     remarks = remarks,
-                    paymentMethod = paymentMethod
+                    paymentMethod = paymentMethod,
+                    transactionCode = transactionCode,
+                    processedBy = processedBy,
+                    purpose = purpose,
+                    initiatorName = initiatorName
                 )
             )
             _events.emit(FinanceEvent.Success("Transaction added successfully"))
@@ -148,9 +154,12 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         receiverName: String? = null,
         receiverId: String? = null,
         remarks: String? = null,
-        paymentMethod: String? = null
+        paymentMethod: String? = null,
+        transactionCode: String? = null,
+        processedBy: String? = null,
+        purpose: String? = null,
+        initiatorName: String? = null
     ) {
-        // Normalize date format
         val normalizedDate = date.replace("/", "-")
         viewModelScope.launch {
             val existing = repository.getTransactionById(id) ?: return@launch
@@ -170,6 +179,10 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                     receiverId = receiverId,
                     remarks = remarks,
                     paymentMethod = paymentMethod,
+                    transactionCode = transactionCode,
+                    processedBy = processedBy,
+                    purpose = purpose,
+                    initiatorName = initiatorName,
                     createdAt = existing.createdAt
                 )
             )
