@@ -45,7 +45,7 @@ object ReceiptParser {
         if (amountLabelIdx >= 0) {
             for (i in (amountLabelIdx + 1)..minOf(amountLabelIdx + 3, lines.lastIndex)) {
                 val v = parseNumber(lines[i])
-                if (v != null && v > 0) return v
+                if (v != null && isValidAmount(v)) return v
             }
         }
 
@@ -55,16 +55,25 @@ object ReceiptParser {
             RegexOption.IGNORE_CASE
         )
         keywordRegex.find(text)?.groupValues?.get(1)?.let { raw ->
-            parseNumber(raw)?.let { if (it > 0) return it }
+            parseNumber(raw)?.let { if (isValidAmount(it)) return it }
         }
 
         // 3. Largest standalone number in plausible range (10–999999),
         //    ignoring phone numbers (10 digits), dates, and reference codes
-        val numberRegex = Regex("""(?<![A-Z0-9])(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)(?![A-Z0-9])""", RegexOption.IGNORE_CASE)
+        val numberRegex = Regex("""(?<![A-Z0-9])(\d+(?:,\d{3})*(?:\.\d{1,2})?)(?![A-Z0-9])""", RegexOption.IGNORE_CASE)
         return numberRegex.findAll(text)
             .mapNotNull { parseNumber(it.groupValues[1]) }
-            .filter { it in 10.0..999999.0 }
+            .filter { isValidAmount(it) }
             .maxOrNull()
+    }
+
+    private fun isValidAmount(value: Double?): Boolean {
+        if (value == null) return false
+        // Filter out years (e.g. 2020 to 2035)
+        if (value >= 2020.0 && value <= 2035.0) return false
+        // Filter out 10-digit mobile numbers starting with 9
+        if (value >= 9000000000.0 && value <= 9999999999.0) return false
+        return value in 10.0..999999.0
     }
 
     private fun parseNumber(raw: String): Double? =
@@ -130,7 +139,7 @@ object ReceiptParser {
             val inline = labelLine.substring(colonIdx + 1).trim()
             if (inline.isNotEmpty()) {
                 val nextLine = lines.getOrNull(labelIdx + 1)
-                if (nextLine != null && !nextLine.contains(':') && !isLabel(nextLine)) {
+                if (nextLine != null && !nextLine.contains(':') && !isLabel(nextLine) && !isNumericOrAmount(nextLine)) {
                     return "$inline $nextLine".trim()
                 }
                 return inline
@@ -141,12 +150,18 @@ object ReceiptParser {
         val sb = StringBuilder()
         for (i in (labelIdx + 1)..minOf(labelIdx + 3, lines.lastIndex)) {
             val l = lines[i]
-            if (isLabel(l)) break
+            if (isLabel(l) || isNumericOrAmount(l)) break
             sb.append(if (sb.isEmpty()) l else " $l")
             val next = lines.getOrNull(i + 1)
-            if (next == null || isLabel(next) || next.contains(':')) break
+            if (next == null || isLabel(next) || next.contains(':') || isNumericOrAmount(next)) break
         }
         return sb.toString().trim().ifEmpty { null }
+    }
+
+    private fun isNumericOrAmount(line: String): Boolean {
+        val clean = line.replace(",", "").trim()
+        // Matches decimal numbers like 1750.00, 864.93, 10.50
+        return clean.matches(Regex("""^\d+\.\d{2}$"""))
     }
 
     // A line is a "label" if it ends with a colon or matches known eSewa section headers
