@@ -332,12 +332,12 @@ fun TransactionsScreen(
             }
         }
 
-        // FAB
+        // FAB (Symmetrically aligned and styled to match Dashboard FAB perfectly)
         FloatingActionButton(
             onClick = { onAddTransactionClick() },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 80.dp, end = 16.dp).testTag("btn_add_transaction_fab"),
-            containerColor = LavenderAccentCard,
-            contentColor = ActivePillText
+            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp, end = 16.dp).testTag("btn_add_transaction_fab"),
+            containerColor = TealPrimary,
+            contentColor = DarkBg
         ) {
             Icon(imageVector = Icons.Default.Add, contentDescription = "Add Transaction")
         }
