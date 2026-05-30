@@ -139,6 +139,11 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                     initiatorName = initiatorName
                 )
             )
+            // Auto-switch display to the transaction's month so it shows up instantly
+            val parsedMonth = if (normalizedDate.length >= 7) normalizedDate.substring(0, 7) else null
+            if (parsedMonth != null && parsedMonth.matches(Regex("""^\d{4}-\d{2}$"""))) {
+                selectedMonth.value = parsedMonth
+            }
             _events.emit(FinanceEvent.Success("Transaction added successfully"))
         }
     }
@@ -186,6 +191,11 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                     createdAt = existing.createdAt
                 )
             )
+            // Auto-switch display to the transaction's month so it shows up instantly
+            val parsedMonth = if (normalizedDate.length >= 7) normalizedDate.substring(0, 7) else null
+            if (parsedMonth != null && parsedMonth.matches(Regex("""^\d{4}-\d{2}$"""))) {
+                selectedMonth.value = parsedMonth
+            }
             _events.emit(FinanceEvent.Success("Transaction updated successfully"))
         }
     }
