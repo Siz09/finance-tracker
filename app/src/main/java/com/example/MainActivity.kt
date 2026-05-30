@@ -20,6 +20,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import com.example.ui.screens.*
 import com.example.ui.screens.settings.*
 import com.example.ui.theme.MyApplicationTheme
@@ -114,7 +117,31 @@ fun MainAppContainer() {
         NavHost(
             navController = navController,
             startDestination = "dashboard",
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = {
+                fadeIn(animationSpec = tween(300)) + slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                )
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                )
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(300)) + slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                )
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                )
+            }
         ) {
             composable("dashboard") {
                 DashboardScreen(
@@ -145,7 +172,30 @@ fun MainAppContainer() {
                     onNavigateToBackup = { navController.navigate("settings_backup") }
                 )
             }
-            composable("add_transaction") {
+            composable(
+                route = "add_transaction",
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
+                },
+                exitTransition = {
+                    slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(250))
+                },
+                popExitTransition = {
+                    slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(250))
+                }
+            ) {
                 TransactionFormScreen(
                     viewModel = viewModel,
                     onDismiss = { navController.popBackStack() }
@@ -153,7 +203,28 @@ fun MainAppContainer() {
             }
             composable(
                 route = "edit_transaction/{id}",
-                arguments = listOf(navArgument("id") { type = NavType.IntType })
+                arguments = listOf(navArgument("id") { type = NavType.IntType }),
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
+                },
+                exitTransition = {
+                    slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(250))
+                },
+                popExitTransition = {
+                    slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(250))
+                }
             ) { backStackEntry ->
                 val id = backStackEntry.arguments?.getInt("id") ?: 0
                 TransactionFormScreen(

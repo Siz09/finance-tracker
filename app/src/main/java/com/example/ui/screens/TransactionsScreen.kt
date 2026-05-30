@@ -1,7 +1,9 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -306,27 +308,38 @@ fun TransactionsScreen(
                 FilterChipItem(label = "Expenses", isSelected = filterType == "expense", tag = "chip_filter_expense", onClick = { filterType = "expense" })
             }
 
-            if (filteredList.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(imageVector = Icons.Default.FilterList, contentDescription = null, tint = GreyText, modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "No matches found" else "No transactions this month",
-                            color = GreyText, style = MaterialTheme.typography.bodyMedium
-                        )
+            AnimatedContent(
+                targetState = filteredList,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(220)).togetherWith(
+                        fadeOut(animationSpec = tween(220))
+                    )
+                },
+                label = "history_list_animation",
+                modifier = Modifier.fillMaxWidth().weight(1f)
+            ) { targetList ->
+                if (targetList.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(imageVector = Icons.Default.FilterList, contentDescription = null, tint = GreyText, modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "No matches found" else "No transactions this month",
+                                color = GreyText, style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(bottom = 88.dp)
-                ) {
-                    items(filteredList) { tx ->
-                        TransactionCardItem(
-                            transaction = tx,
-                            onEditClick = { onEditTransactionClick(tx.id) }
-                        )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 88.dp)
+                    ) {
+                        items(targetList) { tx ->
+                            TransactionCardItem(
+                                transaction = tx,
+                                onEditClick = { onEditTransactionClick(tx.id) }
+                            )
+                        }
                     }
                 }
             }

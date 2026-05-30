@@ -285,35 +285,45 @@ fun DashboardScreen(
                     shape = RoundedCornerShape(28.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column {
-                                Text(text = "NET BALANCE", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = ActivePillText.copy(alpha = 0.6f), letterSpacing = 1.2.sp)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = CurrencyFormatter.format(netBalance),
-                                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp),
-                                    color = ActivePillText
-                                )
-                            }
-                            Box(modifier = Modifier.size(44.dp).background(Color.White.copy(alpha = 0.3f), CircleShape), contentAlignment = Alignment.Center) {
-                                Icon(imageVector = if (netBalance >= 0) Icons.Default.TrendingUp else Icons.Default.TrendingDown, contentDescription = null, tint = ActivePillText, modifier = Modifier.size(24.dp))
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box(modifier = Modifier.weight(1f).background(Color.White.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).padding(16.dp)) {
+                    AnimatedContent(
+                        targetState = selectedMonth,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(220)).togetherWith(
+                                fadeOut(animationSpec = tween(220))
+                            )
+                        },
+                        label = "balance_card_animation"
+                    ) { _ ->
+                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Column {
-                                    Text(text = "INCOME", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ActivePillText.copy(alpha = 0.6f), letterSpacing = 1.sp)
+                                    Text(text = "NET BALANCE", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = ActivePillText.copy(alpha = 0.6f), letterSpacing = 1.2.sp)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = CurrencyFormatter.format(totalIncome), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = IncomeForestGreen, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(
+                                        text = CurrencyFormatter.format(netBalance),
+                                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp),
+                                        color = ActivePillText
+                                    )
+                                }
+                                Box(modifier = Modifier.size(44.dp).background(Color.White.copy(alpha = 0.3f), CircleShape), contentAlignment = Alignment.Center) {
+                                    Icon(imageVector = if (netBalance >= 0) Icons.Default.TrendingUp else Icons.Default.TrendingDown, contentDescription = null, tint = ActivePillText, modifier = Modifier.size(24.dp))
                                 }
                             }
-                            Box(modifier = Modifier.weight(1f).background(Color.White.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).padding(16.dp)) {
-                                Column {
-                                    Text(text = "EXPENSE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ActivePillText.copy(alpha = 0.6f), letterSpacing = 1.sp)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = CurrencyFormatter.format(totalExpense), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = ExpenseWarmRed, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Box(modifier = Modifier.weight(1f).background(Color.White.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).padding(16.dp)) {
+                                    Column {
+                                        Text(text = "INCOME", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ActivePillText.copy(alpha = 0.6f), letterSpacing = 1.sp)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(text = CurrencyFormatter.format(totalIncome), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = IncomeForestGreen, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                                Box(modifier = Modifier.weight(1f).background(Color.White.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).padding(16.dp)) {
+                                    Column {
+                                        Text(text = "EXPENSE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ActivePillText.copy(alpha = 0.6f), letterSpacing = 1.sp)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(text = CurrencyFormatter.format(totalExpense), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = ExpenseWarmRed, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
                                 }
                             }
                         }
@@ -330,33 +340,43 @@ fun DashboardScreen(
                         colors = CardDefaults.cardColors(containerColor = DarkSurface),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(imageVector = Icons.Default.Savings, contentDescription = null, tint = MintIncome, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "Savings Goal — ${getFormattedMonthName(selectedMonth)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = WhiteText)
+                        AnimatedContent(
+                            targetState = selectedMonth,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(220)).togetherWith(
+                                    fadeOut(animationSpec = tween(220))
+                                )
+                            },
+                            label = "savings_goal_card_animation"
+                        ) { _ ->
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(imageVector = Icons.Default.Savings, contentDescription = null, tint = MintIncome, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(text = "Savings Goal — ${getFormattedMonthName(selectedMonth)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = WhiteText)
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                val progressNorm = if (netBalance <= 0) 0f else (netBalance / goalValue).toFloat().coerceIn(0f, 1f)
+                                val progressPct = if (netBalance <= 0) 0 else (netBalance / goalValue * 100).toInt()
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(text = "Saved: ${CurrencyFormatter.format(netBalance.coerceAtLeast(0.0))}", color = GreyText, fontSize = 13.sp)
+                                    Text(text = "Target: ${CurrencyFormatter.format(goalValue)}", color = GreyText, fontSize = 13.sp)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { progressNorm },
+                                    modifier = Modifier.fillMaxWidth().height(8.dp),
+                                    color = if (netBalance >= goalValue) MintIncome else TealPrimary,
+                                    trackColor = DarkSurfaceElevated,
+                                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (netBalance >= goalValue) "🎉 Goal achieved! $progressPct%" else "$progressPct% of target reached",
+                                    color = if (netBalance >= goalValue) MintIncome else GreyText,
+                                    fontSize = 12.sp, fontWeight = FontWeight.Bold
+                                )
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            val progressNorm = if (netBalance <= 0) 0f else (netBalance / goalValue).toFloat().coerceIn(0f, 1f)
-                            val progressPct = if (netBalance <= 0) 0 else (netBalance / goalValue * 100).toInt()
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(text = "Saved: ${CurrencyFormatter.format(netBalance.coerceAtLeast(0.0))}", color = GreyText, fontSize = 13.sp)
-                                Text(text = "Target: ${CurrencyFormatter.format(goalValue)}", color = GreyText, fontSize = 13.sp)
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            LinearProgressIndicator(
-                                progress = { progressNorm },
-                                modifier = Modifier.fillMaxWidth().height(8.dp),
-                                color = if (netBalance >= goalValue) MintIncome else TealPrimary,
-                                trackColor = DarkSurfaceElevated,
-                                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (netBalance >= goalValue) "🎉 Goal achieved! $progressPct%" else "$progressPct% of target reached",
-                                color = if (netBalance >= goalValue) MintIncome else GreyText,
-                                fontSize = 12.sp, fontWeight = FontWeight.Bold
-                            )
                         }
                     }
                 }
@@ -367,46 +387,55 @@ fun DashboardScreen(
                 Text(text = "Expense Breakdowns", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = WhiteText, modifier = Modifier.padding(vertical = 8.dp))
             }
 
-            if (expenseTransactions.isEmpty()) {
-                item {
-                    Card(modifier = Modifier.fillMaxWidth().height(160.dp), colors = CardDefaults.cardColors(containerColor = DarkSurface), shape = RoundedCornerShape(16.dp)) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(imageVector = Icons.Default.BarChart, contentDescription = null, tint = GreyText, modifier = Modifier.size(40.dp))
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(text = "No expenses logged this month.", color = GreyText, style = MaterialTheme.typography.bodyMedium)
+            item {
+                AnimatedContent(
+                    targetState = expenseTransactions,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(220)).togetherWith(
+                            fadeOut(animationSpec = tween(220))
+                        )
+                    },
+                    label = "expense_breakdowns_animation",
+                    modifier = Modifier.fillMaxWidth()
+                ) { targetExpenses ->
+                    if (targetExpenses.isEmpty()) {
+                        Card(modifier = Modifier.fillMaxWidth().height(160.dp), colors = CardDefaults.cardColors(containerColor = DarkSurface), shape = RoundedCornerShape(16.dp)) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(imageVector = Icons.Default.BarChart, contentDescription = null, tint = GreyText, modifier = Modifier.size(40.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(text = "No expenses logged this month.", color = GreyText, style = MaterialTheme.typography.bodyMedium)
+                                }
                             }
                         }
-                    }
-                }
-            } else {
-                item {
-                    Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = CardDefaults.cardColors(containerColor = DarkSurface), shape = RoundedCornerShape(16.dp)) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            DonutChartSection(categorySums, totalExpenseSum)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            categorySums.forEach { (cat, sum) ->
-                                val percent = (sum / totalExpenseSum * 100).toInt()
-                                val emoji = Category.getIcon(cat, "expense")
-                                val budgetLimit = budgets.firstOrNull { it.category.equals(cat, true) }?.monthlyLimit
-                                val budgetWarning = budgetLimit != null && sum >= (budgetLimit * 0.8)
-                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                        Text(text = emoji, fontSize = 20.sp)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Column {
-                                            Text(text = cat, fontWeight = FontWeight.SemiBold, color = WhiteText)
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(text = "$percent% of expenses", style = MaterialTheme.typography.bodySmall, color = GreyText)
-                                                if (budgetWarning && budgetLimit != null) {
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    val badgeColor = if (sum > budgetLimit) RubyExpense else AmberWarning
-                                                    Text(text = if (sum > budgetLimit) "Over Limit" else "80% Warning", color = badgeColor, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                    } else {
+                        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = CardDefaults.cardColors(containerColor = DarkSurface), shape = RoundedCornerShape(16.dp)) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                DonutChartSection(categorySums, totalExpenseSum)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                categorySums.forEach { (cat, sum) ->
+                                    val percent = (sum / totalExpenseSum * 100).toInt()
+                                    val emoji = Category.getIcon(cat, "expense")
+                                    val budgetLimit = budgets.firstOrNull { it.category.equals(cat, true) }?.monthlyLimit
+                                    val budgetWarning = budgetLimit != null && sum >= (budgetLimit * 0.8)
+                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                            Text(text = emoji, fontSize = 20.sp)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Column {
+                                                Text(text = cat, fontWeight = FontWeight.SemiBold, color = WhiteText)
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(text = "$percent% of expenses", style = MaterialTheme.typography.bodySmall, color = GreyText)
+                                                    if (budgetWarning && budgetLimit != null) {
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        val badgeColor = if (sum > budgetLimit) RubyExpense else AmberWarning
+                                                        Text(text = if (sum > budgetLimit) "Over Limit" else "80% Warning", color = badgeColor, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                                                    }
                                                 }
                                             }
                                         }
+                                        Text(text = CurrencyFormatter.format(sum), fontWeight = FontWeight.Bold, color = WhiteText)
                                     }
-                                    Text(text = CurrencyFormatter.format(sum), fontWeight = FontWeight.Bold, color = WhiteText)
                                 }
                             }
                         }
