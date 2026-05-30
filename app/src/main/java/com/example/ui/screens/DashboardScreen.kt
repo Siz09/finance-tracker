@@ -626,7 +626,8 @@ fun DashboardScreen(
                             unfocusedTextColor = WhiteText,
                             focusedBorderColor = TealPrimary,
                             unfocusedBorderColor = DarkSurfaceElevated,
-                            containerColor = DarkSurface
+                            focusedContainerColor = DarkSurface,
+                            unfocusedContainerColor = DarkSurface
                         ),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
@@ -639,33 +640,28 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         val filterChips = listOf(
-                            Triple("all", "All Logs", Icons.Default.List),
-                            Triple("income", "Incomes", Icons.Default.TrendingUp),
-                            Triple("expense", "Expenses", Icons.Default.TrendingDown)
+                            "all" to "All Logs",
+                            "income" to "Incomes",
+                            "expense" to "Expenses"
                         )
 
-                        filterChips.forEach { (chipType, label, icon) ->
+                        filterChips.forEach { (chipType, label) ->
                             val isSelected = sheetFilterType == chipType
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { sheetFilterType = chipType },
-                                label = { Text(text = label) },
-                                leadingIcon = { Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = if (chipType == "income") MintIncome else if (chipType == "expense") RubyExpense else TealPrimary,
-                                    selectedLabelColor = DarkBg,
-                                    selectedLeadingIconColor = DarkBg,
-                                    unfocusedContainerColor = DarkSurfaceElevated,
-                                    unfocusedLabelColor = WhiteText,
-                                    unfocusedLeadingIconColor = GreyText
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = isSelected,
-                                    selectedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                )
-                            )
+                            val containerColor = if (isSelected) {
+                                if (chipType == "income") MintIncome else if (chipType == "expense") RubyExpense else TealPrimary
+                            } else {
+                                DarkSurfaceElevated
+                            }
+                            val textColor = if (isSelected) DarkBg else WhiteText
+                            Box(
+                                modifier = Modifier
+                                    .background(color = containerColor, shape = RoundedCornerShape(20.dp))
+                                    .clickable { sheetFilterType = chipType }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor)
+                            }
                         }
                     }
 
