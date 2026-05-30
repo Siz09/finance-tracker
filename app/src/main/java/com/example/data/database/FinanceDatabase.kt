@@ -45,8 +45,6 @@ abstract class FinanceDatabase : RoomDatabase() {
                     "finance_tracker_db"
                 )
                     .addMigrations(MIGRATION_1_2)
-                    // Fallback only as last resort for unhandled versions — preserves data across known migrations
-                    .fallbackToDestructiveMigrationFrom(0)
                     .build()
                 INSTANCE = instance
                 instance

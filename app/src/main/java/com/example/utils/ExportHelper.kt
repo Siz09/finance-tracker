@@ -54,6 +54,11 @@ object ExportHelper {
                 val noteVal = if (tx.note == null) "null" else "\"$noteEscMap\""
                 val imgVal = if (tx.imagePath == null) "null" else "\"${tx.imagePath.replace("\\", "\\\\").replace("\"", "\\\"")}\""
                 
+                val recNameVal = if (tx.receiverName == null) "null" else "\"${tx.receiverName.replace("\"", "\\\"")}\""
+                val recIdVal = if (tx.receiverId == null) "null" else "\"${tx.receiverId.replace("\"", "\\\"")}\""
+                val remVal = if (tx.remarks == null) "null" else "\"${tx.remarks.replace("\"", "\\\"")}\""
+                val payVal = if (tx.paymentMethod == null) "null" else "\"${tx.paymentMethod.replace("\"", "\\\"")}\""
+
                 sb.append("    {\n")
                 sb.append("      \"id\": ${tx.id},\n")
                 sb.append("      \"type\": \"${tx.type}\",\n")
@@ -62,6 +67,10 @@ object ExportHelper {
                 sb.append("      \"date\": \"${tx.date}\",\n")
                 sb.append("      \"note\": $noteVal,\n")
                 sb.append("      \"imagePath\": $imgVal,\n")
+                sb.append("      \"receiverName\": $recNameVal,\n")
+                sb.append("      \"receiverId\": $recIdVal,\n")
+                sb.append("      \"remarks\": $remVal,\n")
+                sb.append("      \"paymentMethod\": $payVal,\n")
                 sb.append("      \"createdAt\": ${tx.createdAt}\n")
                 if (index < transactions.size - 1) {
                     sb.append("    },\n")

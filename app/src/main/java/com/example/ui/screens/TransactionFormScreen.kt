@@ -3,9 +3,11 @@ package com.example.ui.screens
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -34,6 +36,7 @@ import com.example.data.model.Category
 import com.example.utils.ExportHelper
 import com.example.utils.FileStorageHelper
 import com.example.utils.ReceiptParser
+import com.example.utils.ParsedReceipt
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
 import com.google.mlkit.vision.common.InputImage
@@ -98,6 +101,13 @@ fun TransactionFormScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
+    // OCR Confirmation Overlay State (Fix #16)
+    var pendingOcrResult by remember { mutableStateOf<ParsedReceipt?>(null) }
+    var showOcrConfirmationDialog by remember { mutableStateOf(false) }
+
+    // Expandable metadata state (Fix #22)
+    var showMetadataFields by remember { mutableStateOf(false) }
+
     val isFormValid = remember(amount, category) {
         val amtVal = amount.toDoubleOrNull()
         amtVal != null && amtVal > 0 && category.isNotEmpty()
@@ -115,31 +125,31 @@ fun TransactionFormScreen(
             recognizer.process(image)
                 .addOnSuccessListener { visionText ->
                     val parsed = ReceiptParser.parse(visionText.text)
-                    if (parsed.amount != null) amount = parsed.amount.toString()
-                    if (parsed.date != null) date = parsed.date
-                    receiverName = parsed.receiverName
-                    receiverId = parsed.receiverId
-                    remarks = parsed.remarks
-                    paymentMethod = parsed.paymentMethod
-                    if (!parsed.remarks.isNullOrBlank()) {
-                        note = parsed.remarks!!
-                    } else if (!parsed.receiverName.isNullOrBlank()) {
-                        note = parsed.receiverName!!
-                    } else if (parsed.merchant != null) {
-                        note = parsed.merchant
-                    }
                     isScanning = false
-                    Toast.makeText(
-                        context,
-                        "Receipt scanned — please review extracted data",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    if (parsed.amount != null || parsed.date != null || parsed.receiverName != null || parsed.paymentMethod != null) {
+                        // Present confirmation dialog instead of silent overwrites (Fix #16)
+                        pendingOcrResult = parsed
+                        showOcrConfirmationDialog = true
+                    } else {
+                        Toast.makeText(context, "Scanning complete but no relevant fields extracted.", Toast.LENGTH_LONG).show()
+                    }
                 }
                 .addOnFailureListener { e ->
                     e.printStackTrace()
                     isScanning = false
                     Toast.makeText(context, "OCR failed: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
+        }
+    }
+
+    // Storage/Gallery permission checks (Fix #10)
+    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            galleryLauncher.launch("image/*")
+        } else {
+            Toast.makeText(context, "Gallery permission is required to select receipt images", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -172,7 +182,7 @@ fun TransactionFormScreen(
         }
     }
 
-    // Camera permission launcher
+    // Camera permission launcher (Fix #8)
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -195,6 +205,20 @@ fun TransactionFormScreen(
             cameraLauncher.launch(uri)
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    fun launchGallery() {
+        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        val hasPerm = ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
+        if (hasPerm) {
+            galleryLauncher.launch("image/*")
+        } else {
+            galleryPermissionLauncher.launch(perm)
         }
     }
 
@@ -353,6 +377,99 @@ fun TransactionFormScreen(
                 shape = RoundedCornerShape(12.dp), maxLines = 4
             )
 
+            // digital transaction metadata fields (Fix #22)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { showMetadataFields = !showMetadataFields },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.QrCode, contentDescription = null, tint = TealPrimary)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(text = "Digital Payment Metadata", fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 14.sp)
+                        }
+                        Icon(
+                            imageVector = if (showMetadataFields) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = GreyText
+                        )
+                    }
+
+                    AnimatedVisibility(visible = showMetadataFields || receiverName != null || receiverId != null || remarks != null || paymentMethod != null) {
+                        Column(
+                            modifier = Modifier.padding(top = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Receiver Name
+                            Text(text = "Merchant / Receiver Name", style = MaterialTheme.typography.labelMedium, color = GreyText)
+                            OutlinedTextField(
+                                value = receiverName ?: "",
+                                onValueChange = { receiverName = it.ifBlank { null } },
+                                modifier = Modifier.fillMaxWidth().testTag("input_receiver_name"),
+                                placeholder = { Text("e.g. eSewa Transfer / Shop Name", color = GreyText) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                                    focusedContainerColor = DarkBg, unfocusedContainerColor = DarkBg
+                                ),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+
+                            // Receiver Account/ID
+                            Text(text = "Account / Mobile Number", style = MaterialTheme.typography.labelMedium, color = GreyText)
+                            OutlinedTextField(
+                                value = receiverId ?: "",
+                                onValueChange = { receiverId = it.ifBlank { null } },
+                                modifier = Modifier.fillMaxWidth().testTag("input_receiver_id"),
+                                placeholder = { Text("e.g. 9841xxxxxx / 01234567", color = GreyText) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                                    focusedContainerColor = DarkBg, unfocusedContainerColor = DarkBg
+                                ),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+
+                            // Payment Method
+                            Text(text = "Payment Method", style = MaterialTheme.typography.labelMedium, color = GreyText)
+                            OutlinedTextField(
+                                value = paymentMethod ?: "",
+                                onValueChange = { paymentMethod = it.ifBlank { null } },
+                                modifier = Modifier.fillMaxWidth().testTag("input_payment_method"),
+                                placeholder = { Text("e.g. eSewa, Khalti, Fonepay, Cash", color = GreyText) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                                    focusedContainerColor = DarkBg, unfocusedContainerColor = DarkBg
+                                ),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+
+                            // Narrative Remarks
+                            Text(text = "Narrative Remarks", style = MaterialTheme.typography.labelMedium, color = GreyText)
+                            OutlinedTextField(
+                                value = remarks ?: "",
+                                onValueChange = { remarks = it.ifBlank { null } },
+                                modifier = Modifier.fillMaxWidth().testTag("input_remarks"),
+                                placeholder = { Text("e.g. Funds transfer details", color = GreyText) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                                    focusedContainerColor = DarkBg, unfocusedContainerColor = DarkBg
+                                ),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+                        }
+                    }
+                }
+            }
+
             // Receipt
             Text(text = "Receipt attachment", style = MaterialTheme.typography.labelLarge, color = GreyText)
             if (photoPathState == null) {
@@ -368,7 +485,7 @@ fun TransactionFormScreen(
                         Text(text = "Capture Photo")
                     }
                     OutlinedButton(
-                        onClick = { galleryLauncher.launch("image/*") },
+                        onClick = { launchGallery() },
                         modifier = Modifier.weight(1f).testTag("btn_select_gallery"),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = TealPrimary),
                         shape = RoundedCornerShape(12.dp)
@@ -464,6 +581,90 @@ fun TransactionFormScreen(
                 }
             }
         }
+    }
+
+    // OCR Overwrite Confirmation Dialogue (Fix #16)
+    if (showOcrConfirmationDialog && pendingOcrResult != null) {
+        val ocr = pendingOcrResult!!
+        AlertDialog(
+            onDismissRequest = { showOcrConfirmationDialog = false },
+            title = {
+                Text(text = "Apply Scanned Receipt?", color = WhiteText, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(text = "We scanned the receipt and extracted the following data. Choose which fields you want to apply:", color = GreyText, fontSize = 13.sp)
+
+                    Divider(color = DarkSurfaceElevated)
+
+                    if (ocr.amount != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Amount:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text("Rs. ${ocr.amount}", color = TealPrimary, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                    if (ocr.date != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Date:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.date, color = TealPrimary)
+                        }
+                    }
+                    if (ocr.receiverName != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Receiver/Shop:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.receiverName, color = WhiteText)
+                        }
+                    }
+                    if (ocr.paymentMethod != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Payment Method:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.paymentMethod, color = WhiteText)
+                        }
+                    }
+                    if (ocr.remarks != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Remarks:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.remarks, color = WhiteText)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (ocr.amount != null) amount = ocr.amount.toString()
+                        if (ocr.date != null) date = ocr.date
+                        if (ocr.receiverName != null) receiverName = ocr.receiverName
+                        if (ocr.receiverId != null) receiverId = ocr.receiverId
+                        if (ocr.remarks != null) remarks = ocr.remarks
+                        if (ocr.paymentMethod != null) paymentMethod = ocr.paymentMethod
+
+                        // Auto-fill note intelligently if appropriate
+                        if (!ocr.remarks.isNullOrBlank()) {
+                            note = ocr.remarks
+                        } else if (!ocr.receiverName.isNullOrBlank()) {
+                            note = ocr.receiverName
+                        } else if (ocr.merchant != null) {
+                            note = ocr.merchant
+                        }
+
+                        showOcrConfirmationDialog = false
+                        Toast.makeText(context, "Receipt data applied successfully", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = TealPrimary, contentColor = DarkBg)
+                ) {
+                    Text("Apply Extracted Data")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showOcrConfirmationDialog = false }
+                ) {
+                    Text("Discard", color = RubyExpense)
+                }
+            },
+            containerColor = DarkSurfaceElevated
+        )
     }
 
     // Date picker dialog
