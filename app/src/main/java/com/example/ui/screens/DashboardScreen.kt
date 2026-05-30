@@ -54,6 +54,7 @@ import java.util.Locale
 fun DashboardScreen(
     viewModel: FinanceViewModel,
     onNavigateToTransactions: () -> Unit,
+    onAddTransactionClick: () -> Unit,
     onEditTransaction: (Int) -> Unit
 ) {
     val selectedMonth by viewModel.selectedMonth.collectAsState()
@@ -455,7 +456,7 @@ fun DashboardScreen(
 
         // Quick-add FAB on Dashboard
         FloatingActionButton(
-            onClick = { onNavigateToTransactions() },
+            onClick = { onAddTransactionClick() },
             modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp, end = 16.dp).testTag("btn_dashboard_add_transaction"),
             containerColor = TealPrimary,
             contentColor = DarkBg

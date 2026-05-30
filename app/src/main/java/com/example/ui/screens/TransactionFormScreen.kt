@@ -349,26 +349,33 @@ fun TransactionFormScreen(
                 }
             }
 
-            // Date picker field
+            // Date picker field (Tapping anywhere in the box now launches the date selector!)
             Text(text = "Date", style = MaterialTheme.typography.labelLarge, color = GreyText)
-            OutlinedTextField(
-                value = date,
-                onValueChange = {},
-                modifier = Modifier.fillMaxWidth().testTag("input_transaction_date"),
-                placeholder = { Text("YYYY-MM-DD", color = GreyText) },
-                readOnly = true,
-                trailingIcon = {
-                    IconButton(onClick = { showDatePicker = true }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true }
+            ) {
+                OutlinedTextField(
+                    value = date,
+                    onValueChange = {},
+                    modifier = Modifier.fillMaxWidth().testTag("input_transaction_date"),
+                    placeholder = { Text("YYYY-MM-DD", color = GreyText) },
+                    readOnly = true,
+                    enabled = false, // Disable typing but keep custom styling so it is clickable!
+                    trailingIcon = {
                         Icon(imageVector = Icons.Default.CalendarToday, contentDescription = "Pick Date", tint = TealPrimary)
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
-                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
-                    focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface
-                ),
-                shape = RoundedCornerShape(12.dp), singleLine = true
-            )
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledBorderColor = DarkSurfaceElevated,
+                        disabledTextColor = WhiteText,
+                        disabledContainerColor = DarkSurface,
+                        disabledTrailingIconColor = TealPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+            }
 
             // Note
             Text(text = "Notes (Optional)", style = MaterialTheme.typography.labelLarge, color = GreyText)

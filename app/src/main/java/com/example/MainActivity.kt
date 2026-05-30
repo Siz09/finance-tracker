@@ -120,6 +120,7 @@ fun MainAppContainer() {
                 DashboardScreen(
                     viewModel = viewModel,
                     onNavigateToTransactions = { navController.navigate("transactions") },
+                    onAddTransactionClick = { navController.navigate("add_transaction") },
                     onEditTransaction = { id -> navController.navigate("edit_transaction/$id") }
                 )
             }
