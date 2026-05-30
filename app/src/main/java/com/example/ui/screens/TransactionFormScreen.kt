@@ -741,6 +741,12 @@ fun TransactionFormScreen(
                             Text(ocr.initiatorName, color = WhiteText)
                         }
                     }
+                    if (ocr.suggestedCategory != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Suggested Cat:", color = GreyText, fontWeight = FontWeight.Bold)
+                            Text(ocr.suggestedCategory, color = TealPrimary, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -756,6 +762,7 @@ fun TransactionFormScreen(
                         if (ocr.processedBy != null) processedBy = ocr.processedBy
                         if (ocr.purpose != null) purpose = ocr.purpose
                         if (ocr.initiatorName != null) initiatorName = ocr.initiatorName
+                        if (ocr.suggestedCategory != null) category = ocr.suggestedCategory
 
                         // Auto-fill note intelligently if appropriate
                         if (!ocr.remarks.isNullOrBlank()) {

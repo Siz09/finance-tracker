@@ -11,7 +11,8 @@ data class ParsedReceipt(
     val transactionCode: String? = null,
     val processedBy: String? = null,
     val purpose: String? = null,
-    val initiatorName: String? = null
+    val initiatorName: String? = null,
+    val suggestedCategory: String? = null
 )
 
 object ReceiptParser {
@@ -19,18 +20,33 @@ object ReceiptParser {
     fun parse(text: String): ParsedReceipt {
         val lines = text.lines().map { it.trim() }.filter { it.isNotBlank() }
 
+        val amount          = extractAmount(lines, text)
+        val date            = extractDate(lines, text)
+        val merchant        = extractMerchant(lines)
+        val receiverName    = extractAfterLabel(lines, "Receiver Name")
+        val receiverId      = extractReceiverId(lines)
+        val remarks         = extractAfterLabel(lines, "Remarks")
+        val paymentMethod   = extractAfterLabel(lines, "Payment Method")
+        val transactionCode = extractAfterLabel(lines, "Transaction Code")
+        val processedBy     = extractAfterLabel(lines, "Processed By")
+        val purpose         = extractAfterLabel(lines, "Purpose")
+        val initiatorName   = extractAfterLabel(lines, "Initiator Name")
+
+        val suggestedCategory = suggestCategory(text)
+
         return ParsedReceipt(
-            amount          = extractAmount(lines, text),
-            date            = extractDate(lines, text),
-            merchant        = extractMerchant(lines),
-            receiverName    = extractAfterLabel(lines, "Receiver Name"),
-            receiverId      = extractReceiverId(lines),
-            remarks         = extractAfterLabel(lines, "Remarks"),
-            paymentMethod   = extractAfterLabel(lines, "Payment Method"),
-            transactionCode = extractAfterLabel(lines, "Transaction Code"),
-            processedBy     = extractAfterLabel(lines, "Processed By"),
-            purpose         = extractAfterLabel(lines, "Purpose"),
-            initiatorName   = extractAfterLabel(lines, "Initiator Name")
+            amount          = amount,
+            date            = date,
+            merchant        = merchant,
+            receiverName    = receiverName,
+            receiverId      = receiverId,
+            remarks         = remarks,
+            paymentMethod   = paymentMethod,
+            transactionCode = transactionCode,
+            processedBy     = processedBy,
+            purpose         = purpose,
+            initiatorName   = initiatorName,
+            suggestedCategory = suggestedCategory
         )
     }
 
@@ -212,5 +228,51 @@ object ReceiptParser {
             !line.contains(':') &&
             !line.matches(Regex("""\d+.*"""))
         }
+    }
+
+    private fun suggestCategory(text: String): String {
+        val lower = text.lowercase()
+
+        // 1. Investments / IPO
+        val investmentKeywords = listOf("ipo", "share", "stock", "nepse", "tms", "mutual fund", "investment", "crypto", "bitcoin")
+        if (investmentKeywords.any { lower.contains(it) }) return "Investments"
+
+        // 2. Food & Drinks
+        val foodKeywords = listOf("food", "drink", "cafe", "restaurant", "coke", "momo", "burger", "tea", "lunch", "dinner", "breakfast", "bakery", "sweets", "khaja", "caterers", "canteen")
+        if (foodKeywords.any { lower.contains(it) }) return "Food & Drinks"
+
+        // 3. Utilities / Bill Payments
+        val utilityKeywords = listOf("utility", "electricity", "water", "nea", "internet", "wlink", "vianet", "worldlink", "dishhome", "topup", "recharge", "ntc", "ncell", "visa", "visacode", "card", "fee", "tax", "bill", "commission")
+        if (utilityKeywords.any { lower.contains(it) }) return "Utilities"
+
+        // 4. Transport / Ride Sharing
+        val transportKeywords = listOf("transport", "bus", "taxi", "ride", "pathao", "indriver", "fuel", "petrol", "bike", "car", "airline", "flight", "ticket", "travel")
+        if (transportKeywords.any { lower.contains(it) }) return "Transport"
+
+        // 5. Shopping
+        val shoppingKeywords = listOf("shopping", "dress", "shirt", "pant", "shoes", "daraz", "amazon", "cloth", "bhat-bhateni", "bhatbhateni", "mall", "gift", "fancy", "store", "mart", "grocery", "groceries")
+        if (shoppingKeywords.any { lower.contains(it) }) return "Shopping"
+
+        // 6. Entertainment
+        val entertainmentKeywords = listOf("movie", "cinema", "netflix", "game", "pub", "bar", "club", "concert", "qfx", "theater")
+        if (entertainmentKeywords.any { lower.contains(it) }) return "Entertainment"
+
+        // 7. Housing & Rent
+        val housingKeywords = listOf("rent", "room", "flat", "housing", "landlord", "furniture", "cement", "hardware")
+        if (housingKeywords.any { lower.contains(it) }) return "Housing & Rent"
+
+        // 8. Health
+        val healthKeywords = listOf("health", "hospital", "medicine", "clinic", "doctor", "pharmacy", "medical", "lab", "dental")
+        if (healthKeywords.any { lower.contains(it) }) return "Health"
+
+        // 9. Education
+        val educationKeywords = listOf("education", "school", "college", "tuition", "fee", "book", "stationery", "exam", "academy")
+        if (educationKeywords.any { lower.contains(it) }) return "Education"
+
+        // 10. Travel
+        val travelKeywords = listOf("tour", "hotel", "resort", "trip", "trek", "vacation")
+        if (travelKeywords.any { lower.contains(it) }) return "Travel"
+
+        return "Other"
     }
 }

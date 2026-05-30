@@ -16,6 +16,7 @@ data class Category(
             Category("Health", "🏥", "expense"),
             Category("Education", "📚", "expense"),
             Category("Travel", "✈️", "expense"),
+            Category("Investments", "📈", "expense"),
             Category("Other", "🏷️", "expense")
         )
 
