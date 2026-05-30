@@ -1,0 +1,65 @@
+
+<style>
+.wrap { font-family: var(--font-sans); padding: 1rem 0; }
+.section { margin-bottom: 1.4rem; }
+.section-title { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem; }
+.item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: var(--border-radius-md); margin-bottom: 3px; font-size: 14px; }
+.item:hover { background: var(--color-background-secondary); }
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: 500; flex-shrink: 0; margin-top: 1px; }
+.done   { background: #9FE1CB; color: #085041; }
+.partial{ background: #FAC775; color: #633806; }
+.miss   { background: #F7C1C1; color: #791F1F; }
+.item-text { flex: 1; color: var(--color-text-primary); line-height: 1.5; }
+.sub { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+.hr { border: none; border-top: 1px solid var(--color-border-tertiary); margin: 1rem 0; }
+.summary-bar { display: flex; gap: 8px; margin-bottom: 1.4rem; flex-wrap: wrap; }
+.pill { padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; }
+.legend { display: flex; gap: 14px; margin-bottom: 1rem; font-size: 13px; color: var(--color-text-secondary); flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.warn-box { background: var(--color-background-warning); border-left: 3px solid var(--color-border-warning); border-radius: var(--border-radius-md); padding: 10px 14px; font-size: 13px; color: var(--color-text-warning); margin-bottom: 1rem; line-height: 1.6; }
+</style>
+<div class="wrap">
+  <div class="legend">
+    <span class="legend-item"><span class="badge done">✓</span> Fixed correctly</span>
+    <span class="legend-item"><span class="badge partial">~</span> Partial / needs verification</span>
+    <span class="legend-item"><span class="badge miss">✗</span> Still not addressed</span>
+  </div>
+
+  <div class="warn-box">
+    ⚠️ <strong>2 crash-level issues remain unmentioned in both summaries</strong> — #7 (missing drawable) and #11 (FileProvider authority mismatch). These will prevent the app from building or crash it at runtime on every file share/export action.
+  </div>
+
+  <div class="summary-bar">
+    <span class="pill" style="background:#9FE1CB;color:#085041">6 newly fixed</span>
+    <span class="pill" style="background:#FAC775;color:#633806">1 still partial</span>
+    <span class="pill" style="background:#F7C1C1;color:#791F1F">4 still open</span>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Fixes from round 1 partial list</div>
+    <div class="item"><span class="badge done">✓</span><div class="item-text">#3 ReceiptParser fallback for no-keyword receipts<div class="sub">Two-level fallback added: comma-separated amounts, then bottom-up line scan. Solid approach.</div></div></div>
+    <div class="item"><span class="badge done">✓</span><div class="item-text">#3 Date parser — 4 formats including eSewa/Fonepay<div class="sub">ISO, DD/MM/YYYY with time, text-month (30 May 2026, 30th May), month-first (May 30). Covers real Nepali receipt formats.</div></div></div>
+    <div class="item"><span class="badge done">✓</span><div class="item-text">#6 fallbackToDestructiveMigrationFrom(0) removed<div class="sub">Database is now strictly migration-only. Good.</div></div></div>
+    <div class="item"><span class="badge done">✓</span><div class="item-text">#10 Gallery storage permission — version-aware<div class="sub">READ_MEDIA_IMAGES (Android 13+) vs READ_EXTERNAL_STORAGE handled correctly.</div></div></div>
+    <div class="item"><span class="badge done">✓</span><div class="item-text">#16 OCR review panel — no silent overwrite<div class="sub">"Apply Scanned Receipt?" panel with side-by-side preview before applying. Correct fix.</div></div></div>
+    <div class="item"><span class="badge done">✓</span><div class="item-text">#22 Digital payment metadata card on form<div class="sub">Collapsible card showing receiverName, receiverId, paymentMethod, remarks. Auto-expands after scan.</div></div></div>
+    <div class="item"><span class="badge partial">~</span><div class="item-text">#24 CSV/JSON export updated with new fields<div class="sub">Claimed fixed but no actual diff shown. Needs manual verification that receiverName, receiverId, remarks, paymentMethod are all present in both exportToCSV() and exportToJSON() output.</div></div></div>
+  </div>
+
+  <hr class="hr">
+  <div class="section">
+    <div class="section-title">Still not addressed after both rounds</div>
+    <div class="item"><span class="badge miss">✗</span><div class="item-text">#7 AndroidManifest references ic_launcher_wallet — drawable does not exist<div class="sub">Not mentioned in either summary. The project only has ic_launcher_background and ic_launcher_foreground. This causes a build error. Fix: change android:icon and android:roundIcon to point to @mipmap/ic_launcher and @mipmap/ic_launcher_round.</div></div></div>
+    <div class="item"><span class="badge miss">✗</span><div class="item-text">#11 FileProvider authority mismatch — crashes every share and export<div class="sub">Not mentioned in either summary. Manifest declares com.aistudio.financetracker.axpdky.fileprovider but package is com.example. ExportHelper and the receipt share dialog both call FileProvider.getUriForFile() with this authority — they will throw IllegalArgumentException at runtime. Fix: change authority in both AndroidManifest.xml and all FileProvider.getUriForFile() calls to match the actual package.</div></div></div>
+    <div class="item"><span class="badge miss">✗</span><div class="item-text">#20 Transaction date not shown on transaction cards<div class="sub">TransactionCardItem still shows category + note only. Date is never visible in the list without opening the transaction.</div></div></div>
+    <div class="item"><span class="badge miss">✗</span><div class="item-text">#27 Package name still com.example<div class="sub">Low priority for personal use but worth noting — should be renamed before any distribution or publishing.</div></div></div>
+  </div>
+
+  <hr class="hr">
+  <div class="section">
+    <div class="section-title">Cumulative status across both rounds (all 30 issues)</div>
+    <div class="item"><span class="badge done">✓</span><div class="item-text">22 fully resolved</div></div>
+    <div class="item"><span class="badge partial">~</span><div class="item-text">1 needs verification (#24 export fields)</div></div>
+    <div class="item"><span class="badge miss">✗</span><div class="item-text">4 still open — #7, #11, #20, #27 (2 are crash-level)</div></div>
+  </div>
+</div>
