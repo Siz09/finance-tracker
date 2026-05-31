@@ -1,5 +1,6 @@
 package com.example.data.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -20,6 +21,10 @@ data class Transaction(
     val processedBy: String? = null,       // e.g. phone number "9844296224"
     val purpose: String? = null,           // e.g. "Personal Use"
     val initiatorName: String? = null,     // e.g. "Sijan Maharjan"
+    // Recurring transaction fields (migration v3 → v4)
+    @ColumnInfo(name = "is_recurring") val isRecurring: Boolean = false,
+    @ColumnInfo(name = "recurrence_frequency") val recurrenceFrequency: String? = null, // "daily"|"weekly"|"monthly"
+    // Account / wallet FK (migration v3 → v4)
+    @ColumnInfo(name = "account_id") val accountId: Int? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
-

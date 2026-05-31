@@ -2,16 +2,21 @@ package com.example
 
 import android.app.Application
 import android.util.Log
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import coil.Coil
 import coil.ImageLoader
 import com.example.data.database.FinanceDatabase
 import com.example.data.repository.FinanceRepository
+import com.example.notifications.RecurringWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 class FinanceApplication : Application() {
     val database by lazy { FinanceDatabase.getDatabase(this) }
@@ -22,20 +27,31 @@ class FinanceApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Disable Coil's network observer — this is a fully offline app;
-        // the observer fires registerNetworkCallback on every image load unnecessarily.
+        // Disable Coil's network observer
         Coil.setImageLoader(
             ImageLoader.Builder(this)
                 .networkObserverEnabled(false)
                 .build()
         )
 
-        // Orphaned image cleanup: delete receipt files in filesDir/receipts/ that have
-        // no matching imagePath in the DB. This prevents the receipts folder growing
-        // forever when the user captures a photo then discards the transaction form.
+        // Orphaned image cleanup
         appScope.launch {
             cleanupOrphanedImages()
         }
+
+        // Schedule Recurring Transactions daily check via WorkManager
+        scheduleRecurringWorker()
+    }
+
+    private fun scheduleRecurringWorker() {
+        val recurringRequest = PeriodicWorkRequestBuilder<RecurringWorker>(1, TimeUnit.DAYS)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "recurring_transactions_worker",
+            ExistingPeriodicWorkPolicy.KEEP,
+            recurringRequest
+        )
     }
 
     private suspend fun cleanupOrphanedImages() {

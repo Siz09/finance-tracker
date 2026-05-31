@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
+import com.example.utils.BiometricHelper
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,6 +28,7 @@ fun NotificationsSettingsScreen(
 ) {
     val context = LocalContext.current
     val savedTimeStr by viewModel.reminderTime.collectAsState()
+    val isLockEnabled by viewModel.isAppLockEnabled.collectAsState()
 
     // Internal picker states, synced with DB value when received
     var hour by remember { mutableStateOf(20) }
@@ -48,7 +50,7 @@ fun NotificationsSettingsScreen(
             .background(DarkBg),
         topBar = {
             TopAppBar(
-                title = { Text(text = "Daily Reminders schedule", color = WhiteText) },
+                title = { Text(text = "Security & Reminders", color = WhiteText) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("btn_back_notifications")) {
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = WhiteText)
@@ -84,13 +86,13 @@ fun NotificationsSettingsScreen(
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "Daily Expense Tracker Alert",
+                    text = "Alerts & Security Options",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = WhiteText
                 )
                 Text(
-                    text = "We will schedule a daily notification alert on your system at this configured hour to remind you to log today's financial transitions.",
+                    text = "Configure reminder alerts and protect your secure offline device sandbox.",
                     style = MaterialTheme.typography.bodySmall,
                     color = GreyText,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -98,23 +100,44 @@ fun NotificationsSettingsScreen(
                 )
             }
 
-            // Sub Status Box showing currently configured reminder time
+            // Biometric Lock Toggler Option
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated)
+                colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = TealPrimary)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Current Alert schedule: ${formatHourMinute(hour, minute)}",
-                        fontWeight = FontWeight.Bold,
-                        color = WhiteText,
-                        fontSize = 14.sp
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(imageVector = Icons.Default.Fingerprint, contentDescription = null, tint = TealPrimary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(text = "App Lock Security", fontWeight = FontWeight.Bold, color = WhiteText)
+                            Text(text = "Lock Kharcha with Biometrics / PIN", color = GreyText, fontSize = 11.sp)
+                        }
+                    }
+                    Switch(
+                        checked = isLockEnabled,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                if (BiometricHelper.isBiometricAvailable(context)) {
+                                    viewModel.setAppLockEnabled(true)
+                                    Toast.makeText(context, "App lock enabled!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Biometrics not set up or not available on this device", Toast.LENGTH_LONG).show()
+                                }
+                            } else {
+                                viewModel.setAppLockEnabled(false)
+                                Toast.makeText(context, "App lock disabled!", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = TealPrimary,
+                            checkedTrackColor = TealPrimary.copy(alpha = 0.5f)
+                        )
                     )
                 }
             }

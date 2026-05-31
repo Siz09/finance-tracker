@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.model.Account
 import com.example.data.model.Budget
 import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
@@ -11,6 +12,7 @@ import com.example.data.repository.FinanceRepository
 import com.example.notifications.NotificationScheduler
 import com.example.utils.ExportHelper
 import com.example.utils.FileStorageHelper
+import com.example.widget.FinanceWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -74,6 +76,15 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         .map { it?.value ?: "20:00" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "20:00")
 
+    // Accounts list
+    val accounts: StateFlow<List<Account>> = repository.allAccounts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // App Lock state flow (Biometrics)
+    val isAppLockEnabled: StateFlow<Boolean> = repository.getSettingFlow("biometric_lock")
+        .map { it?.value == "true" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     // Navigation and month alteration
     fun selectPreviousMonth() {
         adjustMonth(-1)
@@ -103,6 +114,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     }
 
     fun addTransaction(
+        context: Context,
         type: String,
         amount: Double,
         category: String,
@@ -116,7 +128,10 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         transactionCode: String? = null,
         processedBy: String? = null,
         purpose: String? = null,
-        initiatorName: String? = null
+        initiatorName: String? = null,
+        isRecurring: Boolean = false,
+        recurrenceFrequency: String? = null,
+        accountId: Int? = null
     ) {
         val normalizedDate = if (date.contains("/") && !date.contains("-")) {
             date.replace("/", "-")
@@ -140,7 +155,10 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                         transactionCode = transactionCode,
                         processedBy = processedBy,
                         purpose = purpose,
-                        initiatorName = initiatorName
+                        initiatorName = initiatorName,
+                        isRecurring = isRecurring,
+                        recurrenceFrequency = recurrenceFrequency,
+                        accountId = accountId
                     )
                 )
                 // Auto-switch display to the transaction's month so it shows up instantly
@@ -149,6 +167,8 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                     selectedMonth.value = parsedMonth
                 }
                 _events.emit(FinanceEvent.Success("Transaction added successfully"))
+                // Refresh home screen widget
+                FinanceWidgetProvider.updateAllWidgets(context)
             } catch (e: Exception) {
                 _events.emit(FinanceEvent.Error("Failed to save transaction: ${e.message ?: "Unknown error"}"))
             }
@@ -156,6 +176,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     }
 
     fun updateTransaction(
+        context: Context,
         id: Int,
         type: String,
         amount: Double,
@@ -170,7 +191,10 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         transactionCode: String? = null,
         processedBy: String? = null,
         purpose: String? = null,
-        initiatorName: String? = null
+        initiatorName: String? = null,
+        isRecurring: Boolean = false,
+        recurrenceFrequency: String? = null,
+        accountId: Int? = null
     ) {
         val normalizedDate = date.replace("/", "-")
         viewModelScope.launch {
@@ -199,6 +223,9 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                         processedBy = processedBy,
                         purpose = purpose,
                         initiatorName = initiatorName,
+                        isRecurring = isRecurring,
+                        recurrenceFrequency = recurrenceFrequency,
+                        accountId = accountId,
                         createdAt = existing.createdAt
                     )
                 )
@@ -208,17 +235,21 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                     selectedMonth.value = parsedMonth
                 }
                 _events.emit(FinanceEvent.Success("Transaction updated successfully"))
+                // Refresh home screen widget
+                FinanceWidgetProvider.updateAllWidgets(context)
             } catch (e: Exception) {
                 _events.emit(FinanceEvent.Error("Failed to update transaction: ${e.message ?: "Unknown error"}"))
             }
         }
     }
 
-    fun deleteTransaction(id: Int) {
+    fun deleteTransaction(context: Context, id: Int) {
         viewModelScope.launch {
             try {
                 repository.deleteTransaction(id)
                 _events.emit(FinanceEvent.Success("Transaction deleted successfully"))
+                // Refresh home screen widget
+                FinanceWidgetProvider.updateAllWidgets(context)
             } catch (e: Exception) {
                 _events.emit(FinanceEvent.Error("Failed to delete transaction: ${e.message ?: "Unknown error"}"))
             }
@@ -230,8 +261,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         viewModelScope.launch {
             try {
                 val currentMonth = selectedMonth.value
-                val list = repository.getBudgetsForMonthSuspend(currentMonth)
-                val existing = list.firstOrNull { it.category == category }
+                val existing = repository.getBudgetByCategoryAndMonth(category, currentMonth)
                 val newBudget = if (existing != null) {
                     existing.copy(monthlyLimit = limit)
                 } else {
@@ -259,7 +289,6 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         viewModelScope.launch {
             try {
                 val currentMonth = selectedMonth.value
-                // Use proper suspend DAO query instead of firstOrNull() on Flow
                 val existing = repository.getSavingsGoalForMonthSuspend(currentMonth)
                 val newGoal = if (existing != null) {
                     existing.copy(target = target)
@@ -286,14 +315,40 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         }
     }
 
+    // App Lock (Biometrics) Configuration
+    fun setAppLockEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                repository.updateSetting("biometric_lock", enabled.toString())
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to update security: ${e.message}"))
+            }
+        }
+    }
+
+    // ── Wallets / Accounts Operations ─────────────────────────────────────────
+    fun addAccount(name: String, type: String, emoji: String) {
+        viewModelScope.launch {
+            try {
+                repository.insertAccount(Account(name = name, type = type, emoji = emoji))
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to create wallet: ${e.message}"))
+            }
+        }
+    }
+
+    fun deleteAccount(id: Int) {
+        viewModelScope.launch {
+            try {
+                repository.deleteAccountById(id)
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to delete wallet: ${e.message}"))
+            }
+        }
+    }
+
     // ── JSON Import / Restore ─────────────────────────────────────────────────
 
-    /**
-     * Parses the JSON content string from a backup file, validates it, and
-     * bulk-inserts all records into Room using IGNORE conflict strategy.
-     * Emits a [FinanceEvent.Success] with an import summary on completion,
-     * or a [FinanceEvent.Error] if the JSON is invalid or the insert fails.
-     */
     fun importFromJSON(jsonContent: String) {
         viewModelScope.launch {
             try {
@@ -301,7 +356,6 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                     ExportHelper.parseImportedJSON(jsonContent)
                 }
 
-                // Block import if the top-level structure is bad
                 if (result.transactions.isEmpty() && result.budgets.isEmpty() && result.savingsGoals.isEmpty()) {
                     val msg = if (result.errors.isNotEmpty()) result.errors.first()
                               else "Nothing to import — the file appears to be empty."
@@ -309,7 +363,6 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                     return@launch
                 }
 
-                // Bulk-insert on IO
                 withContext(Dispatchers.IO) {
                     if (result.transactions.isNotEmpty())
                         repository.insertTransactions(result.transactions)

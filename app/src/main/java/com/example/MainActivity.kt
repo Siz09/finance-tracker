@@ -1,7 +1,7 @@
 package com.example
 
+import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
@@ -28,28 +29,90 @@ import com.example.ui.screens.settings.*
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.FinanceEvent
 import com.example.ui.viewmodel.FinanceViewModel
+import com.example.utils.BiometricHelper
 import kotlinx.coroutines.flow.collectLatest
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
+
+    private var isUnlocked by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
             MyApplicationTheme {
-                MainAppContainer()
+                val context = LocalContext.current
+                val app = context.applicationContext as FinanceApplication
+                val viewModel: FinanceViewModel = viewModel(
+                    factory = FinanceViewModel.Factory(app.repository)
+                )
+
+                val isLockEnabled by viewModel.isAppLockEnabled.collectAsState()
+
+                // Trigger biometric authentication if enabled and not yet unlocked
+                LaunchedEffect(isLockEnabled) {
+                    if (isLockEnabled && !isUnlocked && BiometricHelper.isBiometricAvailable(this@MainActivity)) {
+                        BiometricHelper.showBiometricPrompt(
+                            activity = this@MainActivity,
+                            onSuccess = { isUnlocked = true },
+                            onFailure = { 
+                                // Silent retry or wait for user manual unlock tap
+                            }
+                        )
+                    } else {
+                        isUnlocked = true
+                    }
+                }
+
+                if (isUnlocked) {
+                    val startDest = remember {
+                        if (intent?.action == "com.example.ACTION_ADD_TRANSACTION") "add_transaction" else "dashboard"
+                    }
+                    MainAppContainer(viewModel = viewModel, startDestination = startDest)
+                } else {
+                    // Modern premium glassmorphic lock screen
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(com.example.ui.theme.DarkBg),
+                        contentAlignment = androidx.compose.ui.Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = com.example.ui.theme.TealPrimary,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(modifier = Modifier.padding(12.dp))
+                            Text("Kharcha Locked", color = com.example.ui.theme.WhiteText, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                            Spacer(modifier = Modifier.padding(8.dp))
+                            Button(
+                                onClick = {
+                                    BiometricHelper.showBiometricPrompt(
+                                        activity = this@MainActivity,
+                                        onSuccess = { isUnlocked = true },
+                                        onFailure = {}
+                                    )
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = com.example.ui.theme.TealPrimary)
+                            ) {
+                                Text("Unlock App", color = com.example.ui.theme.DarkBg)
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 }
 
 @Composable
-fun MainAppContainer() {
-    val context = LocalContext.current
-    val app = context.applicationContext as FinanceApplication
-    val viewModel: FinanceViewModel = viewModel(
-        factory = FinanceViewModel.Factory(app.repository)
-    )
-
+fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -57,7 +120,6 @@ fun MainAppContainer() {
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
-        // Reset selectedMonth back to current system calendar month on fresh launch
         try {
             val todayStr = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault()).format(java.util.Date())
             viewModel.selectedMonth.value = todayStr
@@ -124,7 +186,7 @@ fun MainAppContainer() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = "dashboard",
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
             enterTransition = {
                 fadeIn(animationSpec = tween(300)) + slideIntoContainer(
@@ -187,7 +249,9 @@ fun MainAppContainer() {
                     onNavigateToBudget = { navController.navigate("settings_budget") },
                     onNavigateToSavings = { navController.navigate("settings_savings") },
                     onNavigateToNotifications = { navController.navigate("settings_notifications") },
-                    onNavigateToBackup = { navController.navigate("settings_backup") }
+                    onNavigateToBackup = { navController.navigate("settings_backup") },
+                    onNavigateToAccounts = { navController.navigate("settings_accounts") },
+                    onNavigateToReports = { navController.navigate("reports") }
                 )
             }
             composable(
@@ -275,19 +339,18 @@ fun MainAppContainer() {
                     onBackClick = { navController.popBackStack() }
                 )
             }
+            composable("settings_accounts") {
+                AccountsScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+            composable("reports") {
+                ReportsScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
-
-data class TabItem(
-    val route: String,
-    val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val tag: String
-)
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(text = "Hello $name! Welcome to Finance Tracker.", modifier = modifier)
-}
-

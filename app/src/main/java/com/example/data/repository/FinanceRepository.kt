@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import com.example.data.dao.FinanceDao
+import com.example.data.model.Account
 import com.example.data.model.AppSetting
 import com.example.data.model.Budget
 import com.example.data.model.SavingsGoal
@@ -89,5 +90,29 @@ class FinanceRepository(private val financeDao: FinanceDao) {
 
     suspend fun updateSetting(key: String, value: String) {
         financeDao.insertSetting(AppSetting(key, value))
+    }
+
+    // ── Recurring Transactions ────────────────────────────────────────────────
+    fun getRecurringTransactions(): Flow<List<Transaction>> {
+        return financeDao.getRecurringTransactions()
+    }
+
+    // ── Accounts / Wallets ────────────────────────────────────────────────────
+    val allAccounts: Flow<List<Account>> = financeDao.getAllAccounts()
+
+    suspend fun getAccountById(id: Int): Account? {
+        return financeDao.getAccountById(id)
+    }
+
+    suspend fun insertAccount(account: Account) {
+        financeDao.insertAccount(account)
+    }
+
+    suspend fun updateAccount(account: Account) {
+        financeDao.updateAccount(account)
+    }
+
+    suspend fun deleteAccountById(id: Int) {
+        financeDao.deleteAccountById(id)
     }
 }

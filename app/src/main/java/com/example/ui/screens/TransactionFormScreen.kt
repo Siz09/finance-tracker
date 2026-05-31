@@ -75,6 +75,12 @@ fun TransactionFormScreen(
     var purpose by remember { mutableStateOf<String?>(null) }
     var initiatorName by remember { mutableStateOf<String?>(null) }
 
+    var isRecurringState by remember { mutableStateOf(false) }
+    var recurrenceFrequencyState by remember { mutableStateOf("monthly") }
+    var accountIdState by remember { mutableStateOf<Int?>(null) }
+
+    val accounts by viewModel.accounts.collectAsState()
+
     LaunchedEffect(transactionId) {
         if (transactionId != null && transactionId > 0) {
             val tx = viewModel.getTransactionById(transactionId)
@@ -94,6 +100,9 @@ fun TransactionFormScreen(
                 processedBy = tx.processedBy
                 purpose = tx.purpose
                 initiatorName = tx.initiatorName
+                isRecurringState = tx.isRecurring
+                recurrenceFrequencyState = tx.recurrenceFrequency ?: "monthly"
+                accountIdState = tx.accountId
             }
         } else {
             initialCategory = Category.EXPENSES.first().name
@@ -426,6 +435,115 @@ fun TransactionFormScreen(
                 shape = RoundedCornerShape(12.dp), maxLines = 4
             )
 
+            // Wallet/Account Selector
+            if (accounts.isNotEmpty()) {
+                Text(text = "Select Wallet / Account", style = MaterialTheme.typography.labelLarge, color = GreyText)
+                var isAccountDropdownExpanded by remember { mutableStateOf(false) }
+                val selectedAccount = accounts.find { it.id == accountIdState }
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(DarkSurface, RoundedCornerShape(12.dp))
+                            .clickable { isAccountDropdownExpanded = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                            .testTag("dropdown_select_account"),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = selectedAccount?.emoji ?: "💳", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(text = selectedAccount?.name ?: "Choose account...", color = WhiteText, fontWeight = FontWeight.SemiBold)
+                        }
+                        Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null, tint = WhiteText)
+                    }
+                    DropdownMenu(
+                        expanded = isAccountDropdownExpanded,
+                        onDismissRequest = { isAccountDropdownExpanded = false },
+                        modifier = Modifier.background(DarkSurfaceElevated).fillMaxWidth(0.9f)
+                    ) {
+                        accounts.forEach { acc ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = acc.emoji, fontSize = 20.sp)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(text = acc.name, color = WhiteText)
+                                    }
+                                },
+                                onClick = {
+                                    accountIdState = acc.id
+                                    isAccountDropdownExpanded = false
+                                },
+                                modifier = Modifier.testTag("account_item_${acc.name}")
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Recurring Options
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.Autorenew, contentDescription = null, tint = TealPrimary)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(text = "Recurring Transaction", fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 14.sp)
+                        }
+                        Switch(
+                            checked = isRecurringState,
+                            onCheckedChange = { isRecurringState = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = TealPrimary,
+                                checkedTrackColor = TealPrimary.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+
+                    AnimatedVisibility(visible = isRecurringState) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(text = "Recurrence Frequency", style = MaterialTheme.typography.labelSmall, color = GreyText)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("daily", "weekly", "monthly").forEach { freq ->
+                                    val isSelected = recurrenceFrequencyState == freq
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(
+                                                color = if (isSelected) TealPrimary else DarkSurfaceElevated,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable { recurrenceFrequencyState = freq }
+                                            .padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = freq.uppercase(),
+                                            color = if (isSelected) DarkBg else WhiteText,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // digital transaction metadata fields (Fix #22)
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -661,23 +779,31 @@ fun TransactionFormScreen(
                     val normalizedDate = date.replace("/", "-")
                     if (isEditingMode && transactionId != null) {
                         viewModel.updateTransaction(
+                            context = context,
                             id = transactionId, type = type, amount = amtVal,
                             category = category, date = normalizedDate, note = cleanNote,
                             imagePath = photoPathState, receiverName = receiverName,
                             receiverId = receiverId, remarks = remarks,
                             paymentMethod = paymentMethod, transactionCode = transactionCode,
                             processedBy = processedBy, purpose = purpose,
-                            initiatorName = initiatorName
+                            initiatorName = initiatorName,
+                            isRecurring = isRecurringState,
+                            recurrenceFrequency = if (isRecurringState) recurrenceFrequencyState else null,
+                            accountId = accountIdState
                         )
                     } else {
                         viewModel.addTransaction(
+                            context = context,
                             type = type, amount = amtVal, category = category,
                             date = normalizedDate, note = cleanNote,
                             imagePath = photoPathState, receiverName = receiverName,
                             receiverId = receiverId, remarks = remarks,
                             paymentMethod = paymentMethod, transactionCode = transactionCode,
                             processedBy = processedBy, purpose = purpose,
-                            initiatorName = initiatorName
+                            initiatorName = initiatorName,
+                            isRecurring = isRecurringState,
+                            recurrenceFrequency = if (isRecurringState) recurrenceFrequencyState else null,
+                            accountId = accountIdState
                         )
                     }
                     onDismiss()
@@ -863,7 +989,7 @@ fun TransactionFormScreen(
             text = { Text("This will permanently delete this transaction and its attached receipt image. This action cannot be undone.", color = GreyText) },
             confirmButton = {
                 Button(
-                    onClick = { viewModel.deleteTransaction(transactionId); showDeleteConfirmDialog = false; onDismiss() },
+                    onClick = { viewModel.deleteTransaction(context, transactionId); showDeleteConfirmDialog = false; onDismiss() },
                     colors = ButtonDefaults.buttonColors(containerColor = RubyExpense)
                 ) { Text("Delete", color = WhiteText) }
             },

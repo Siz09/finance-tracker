@@ -1,6 +1,7 @@
 package com.example.data.dao
 
 import androidx.room.*
+import com.example.data.model.Account
 import com.example.data.model.AppSetting
 import com.example.data.model.Budget
 import com.example.data.model.SavingsGoal
@@ -16,6 +17,9 @@ interface FinanceDao {
 
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: Int): Transaction?
+
+    @Query("SELECT * FROM transactions WHERE is_recurring = 1")
+    fun getRecurringTransactions(): Flow<List<Transaction>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction)
@@ -74,4 +78,20 @@ interface FinanceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSetting(setting: AppSetting)
+
+    // ── Accounts / Wallets ────────────────────────────────────────────────────
+    @Query("SELECT * FROM accounts ORDER BY name ASC")
+    fun getAllAccounts(): Flow<List<Account>>
+
+    @Query("SELECT * FROM accounts WHERE id = :id LIMIT 1")
+    suspend fun getAccountById(id: Int): Account?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAccount(account: Account)
+
+    @Update
+    suspend fun updateAccount(account: Account)
+
+    @Query("DELETE FROM accounts WHERE id = :id")
+    suspend fun deleteAccountById(id: Int)
 }

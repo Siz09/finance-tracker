@@ -3,12 +3,14 @@ package com.example.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -17,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
+import com.example.ui.viewmodel.FinanceViewModel
 
 @Composable
 fun SettingsScreen(
@@ -24,12 +27,15 @@ fun SettingsScreen(
     onNavigateToBudget: () -> Unit,
     onNavigateToSavings: () -> Unit,
     onNavigateToNotifications: () -> Unit,
-    onNavigateToBackup: () -> Unit
+    onNavigateToBackup: () -> Unit,
+    onNavigateToAccounts: () -> Unit,
+    onNavigateToReports: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBg)
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -54,7 +60,26 @@ fun SettingsScreen(
 
         HorizontalDivider(color = BorderPale, thickness = 1.dp)
 
-        // Preferences Tiles
+        // New Feature 1: Reports screen shortcut
+        SettingsMenuItem(
+            title = "Spending Analytics & Reports",
+            subtitle = "See deep interactive charts and MoM comparisons",
+            icon = Icons.Default.Assessment,
+            iconTint = TealPrimary,
+            tag = "tile_settings_reports",
+            onClick = onNavigateToReports
+        )
+
+        // New Feature 2: Manage Accounts / Wallets
+        SettingsMenuItem(
+            title = "Wallets & Multi-Accounts",
+            subtitle = "Divide assets into Cash, eSewa, Bank, etc.",
+            icon = Icons.Default.Wallet,
+            iconTint = MintIncome,
+            tag = "tile_settings_accounts",
+            onClick = onNavigateToAccounts
+        )
+
         SettingsMenuItem(
             title = "Monthly Category Budgets",
             subtitle = "Set limits and configure 80% warnings per category",
@@ -85,15 +110,15 @@ fun SettingsScreen(
         SettingsMenuItem(
             title = "Backup & Data Exports",
             subtitle = "Export database files safely to local JSON or CSV formats",
-            icon = Icons.Default.CloudQueue, // cloud offline look
+            icon = Icons.Default.CloudQueue,
             iconTint = AmberWarning,
             tag = "tile_settings_backup",
             onClick = onNavigateToBackup
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // System information footer (100% Client Offline metadata)
+        // System information footer
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -107,7 +132,7 @@ fun SettingsScreen(
                 fontSize = 14.sp
             )
             Text(
-                text = "v1.0.0.offline — Fully Client-Side Device Sandbox",
+                text = "v1.1.0.offline — Multi-Wallet, Recurring, Biometric Security",
                 color = GreyText,
                 fontSize = 11.sp
             )

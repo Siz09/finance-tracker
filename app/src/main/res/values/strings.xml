@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Finance Tracker</string>
+    <string name="shortcut_add_label">Add Transaction</string>
+    <string name="shortcut_add_label_long">Log new income/expense</string>
 </resources>

@@ -76,6 +76,10 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   // Bundled ML Kit for true offline OCR (no Play Services download required)
   implementation(libs.mlkit.text.recognition.bundled)
+  // WorkManager for recurring transaction scheduling
+  implementation(libs.androidx.work.runtime.ktx)
+  // Biometric prompt for optional app lock
+  implementation(libs.androidx.biometric)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
