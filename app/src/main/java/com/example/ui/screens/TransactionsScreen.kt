@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
+import com.example.ui.components.TransactionCardItem
 import java.text.SimpleDateFormat
 import java.util.Locale
 

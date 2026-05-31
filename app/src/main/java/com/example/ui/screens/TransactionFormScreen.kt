@@ -39,6 +39,9 @@ import com.example.utils.ReceiptParser
 import com.example.utils.ParsedReceipt
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
+import com.example.ui.components.OcrConfirmationDialog
+import com.example.ui.components.DeleteConfirmationDialog
+import com.example.ui.components.FullReceiptViewerDialog
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -832,130 +835,28 @@ fun TransactionFormScreen(
                 }
             }
         }
-    }
-
     // OCR Overwrite Confirmation Dialogue (Fix #16)
     if (showOcrConfirmationDialog && pendingOcrResult != null) {
-        val ocr = pendingOcrResult!!
-        AlertDialog(
-            onDismissRequest = { showOcrConfirmationDialog = false },
-            title = {
-                Text(text = "Apply Scanned Receipt?", color = WhiteText, fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(text = "We scanned the receipt and extracted the following data. Choose which fields you want to apply:", color = GreyText, fontSize = 13.sp)
+        OcrConfirmationDialog(
+            ocr = pendingOcrResult!!,
+            onDismiss = { showOcrConfirmationDialog = false },
+            onApply = { amt, dt, name, uid, rem, pm, code, proc, purp, initName, sugCat, autoNote ->
+                if (amt != null) amount = amt
+                if (dt != null) date = dt
+                if (name != null) receiverName = name
+                if (uid != null) receiverId = uid
+                if (rem != null) remarks = rem
+                if (pm != null) paymentMethod = pm
+                if (code != null) transactionCode = code
+                if (proc != null) processedBy = proc
+                if (purp != null) purpose = purp
+                if (initName != null) initiatorName = initName
+                if (sugCat != null) category = sugCat
+                if (autoNote != null) note = autoNote
 
-                    Divider(color = DarkSurfaceElevated)
-
-                    if (ocr.amount != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Amount:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text("Rs. ${ocr.amount}", color = TealPrimary, fontWeight = FontWeight.ExtraBold)
-                        }
-                    }
-                    if (ocr.date != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Date:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.date, color = TealPrimary)
-                        }
-                    }
-                    if (ocr.receiverName != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Receiver:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.receiverName, color = WhiteText)
-                        }
-                    }
-                    if (ocr.receiverId != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("eSewa ID:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.receiverId, color = WhiteText, fontSize = 12.sp)
-                        }
-                    }
-                    if (ocr.paymentMethod != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Payment:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.paymentMethod, color = WhiteText)
-                        }
-                    }
-                    if (ocr.transactionCode != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Txn Code:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.transactionCode, color = WhiteText)
-                        }
-                    }
-                    if (ocr.purpose != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Purpose:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.purpose, color = WhiteText)
-                        }
-                    }
-                    if (ocr.remarks != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Remarks:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.remarks, color = WhiteText)
-                        }
-                    }
-                    if (ocr.processedBy != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Processed By:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.processedBy, color = WhiteText)
-                        }
-                    }
-                    if (ocr.initiatorName != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Initiator:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.initiatorName, color = WhiteText)
-                        }
-                    }
-                    if (ocr.suggestedCategory != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Suggested Cat:", color = GreyText, fontWeight = FontWeight.Bold)
-                            Text(ocr.suggestedCategory, color = TealPrimary, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (ocr.amount != null) amount = ocr.amount.toString()
-                        if (ocr.date != null) date = ocr.date
-                        if (ocr.receiverName != null) receiverName = ocr.receiverName
-                        if (ocr.receiverId != null) receiverId = ocr.receiverId
-                        if (ocr.remarks != null) remarks = ocr.remarks
-                        if (ocr.paymentMethod != null) paymentMethod = ocr.paymentMethod
-                        if (ocr.transactionCode != null) transactionCode = ocr.transactionCode
-                        if (ocr.processedBy != null) processedBy = ocr.processedBy
-                        if (ocr.purpose != null) purpose = ocr.purpose
-                        if (ocr.initiatorName != null) initiatorName = ocr.initiatorName
-                        if (ocr.suggestedCategory != null) category = ocr.suggestedCategory
-
-                        // Auto-fill note intelligently if appropriate
-                        if (!ocr.remarks.isNullOrBlank()) {
-                            note = ocr.remarks
-                        } else if (!ocr.receiverName.isNullOrBlank()) {
-                            note = ocr.receiverName
-                        } else if (ocr.merchant != null) {
-                            note = ocr.merchant
-                        }
-
-                        showOcrConfirmationDialog = false
-                        Toast.makeText(context, "Receipt data applied successfully", Toast.LENGTH_SHORT).show()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = TealPrimary, contentColor = DarkBg)
-                ) {
-                    Text("Apply Extracted Data")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showOcrConfirmationDialog = false }
-                ) {
-                    Text("Discard", color = RubyExpense)
-                }
-            },
-            containerColor = DarkSurfaceElevated
+                showOcrConfirmationDialog = false
+                Toast.makeText(context, "Receipt data applied successfully", Toast.LENGTH_SHORT).show()
+            }
         )
     }
 
@@ -983,62 +884,22 @@ fun TransactionFormScreen(
 
     // Delete confirmation dialog
     if (showDeleteConfirmDialog && transactionId != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Delete Transaction?", color = WhiteText, fontWeight = FontWeight.Bold) },
-            text = { Text("This will permanently delete this transaction and its attached receipt image. This action cannot be undone.", color = GreyText) },
-            confirmButton = {
-                Button(
-                    onClick = { viewModel.deleteTransaction(context, transactionId); showDeleteConfirmDialog = false; onDismiss() },
-                    colors = ButtonDefaults.buttonColors(containerColor = RubyExpense)
-                ) { Text("Delete", color = WhiteText) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = false }) { Text("Cancel", color = TealPrimary) }
-            },
-            containerColor = DarkSurfaceElevated
+        DeleteConfirmationDialog(
+            onDismiss = { showDeleteConfirmDialog = false },
+            onConfirm = {
+                viewModel.deleteTransaction(context, transactionId)
+                showDeleteConfirmDialog = false
+                onDismiss()
+            }
         )
     }
 
     // Full-screen receipt viewer
     if (showFullReceiptDialog && photoPathState != null) {
-        val attachedFile = File(photoPathState!!)
-        AlertDialog(
-            onDismissRequest = { showFullReceiptDialog = false },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showFullReceiptDialog = false }, modifier = Modifier.testTag("btn_close_receipt_dialog")) {
-                    Text("Close", color = TealPrimary)
-                }
-            },
-            title = {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "Receipt Attachment View", fontSize = 16.sp, color = WhiteText, fontWeight = FontWeight.Bold)
-                    IconButton(
-                        onClick = {
-                            try {
-                                val uri = FileProvider.getUriForFile(context, "com.example.fileprovider", attachedFile)
-                                ExportHelper.shareFile(context, uri, "image/jpeg")
-                            } catch (e: Exception) { e.printStackTrace() }
-                        },
-                        modifier = Modifier.testTag("btn_share_receipt_dialog")
-                    ) {
-                        Icon(imageVector = Icons.Default.Share, contentDescription = "Share Receipt", tint = TealPrimary)
-                    }
-                }
-            },
-            text = {
-                Box(modifier = Modifier.fillMaxWidth().height(350.dp)) {
-                    if (attachedFile.exists()) {
-                        AsyncImage(model = attachedFile, contentDescription = "Receipt Zoomed", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                    } else {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Image file not found", color = RubyExpense)
-                        }
-                    }
-                }
-            },
-            containerColor = DarkSurfaceElevated
+        FullReceiptViewerDialog(
+            photoPath = photoPathState!!,
+            context = context,
+            onDismiss = { showFullReceiptDialog = false }
         )
     }
 }

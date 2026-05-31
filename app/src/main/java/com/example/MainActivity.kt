@@ -2,6 +2,7 @@ package com.example
 
 import android.content.Intent
 import android.os.Bundle
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,13 +42,20 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            MyApplicationTheme {
-                val context = LocalContext.current
-                val app = context.applicationContext as FinanceApplication
-                val viewModel: FinanceViewModel = viewModel(
-                    factory = FinanceViewModel.Factory(app.repository)
-                )
+            val context = LocalContext.current
+            val app = context.applicationContext as FinanceApplication
+            val viewModel: FinanceViewModel = viewModel(
+                factory = FinanceViewModel.Factory(app.repository)
+            )
 
+            val themeMode by viewModel.themeMode.collectAsState()
+            val isDark = when (themeMode) {
+                "dark" -> true
+                "light" -> false
+                else -> isSystemInDarkTheme()
+            }
+
+            MyApplicationTheme(darkTheme = isDark) {
                 val isLockEnabled by viewModel.isAppLockEnabled.collectAsState()
 
                 // Trigger biometric authentication if enabled and not yet unlocked
@@ -243,6 +251,7 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
             }
             composable("settings") {
                 SettingsScreen(
+                    viewModel = viewModel,
                     onBackClick = { navController.navigate("dashboard") {
                         popUpTo("dashboard") { inclusive = true }
                     }},

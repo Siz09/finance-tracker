@@ -85,6 +85,11 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         .map { it?.value == "true" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    // Theme Mode ("light", "dark", "system")
+    val themeMode: StateFlow<String> = repository.getSettingFlow("theme_mode")
+        .map { it?.value ?: "system" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
+
     // Navigation and month alteration
     fun selectPreviousMonth() {
         adjustMonth(-1)
@@ -322,6 +327,17 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                 repository.updateSetting("biometric_lock", enabled.toString())
             } catch (e: Exception) {
                 _events.emit(FinanceEvent.Error("Failed to update security: ${e.message}"))
+            }
+        }
+    }
+
+    // Theme Configuration
+    fun setThemeMode(mode: String) {
+        viewModelScope.launch {
+            try {
+                repository.updateSetting("theme_mode", mode)
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to update theme: ${e.message}"))
             }
         }
     }

@@ -1,36 +1,65 @@
 package com.example.ui.theme
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 
-// ==========================================
-// NEW: Clean Minimalism Color Palette (HTML Inspired)
-// ==========================================
-val LightBg = Color(0xFFFEF7FF)              // Very light pale purple-white background
-val AppSurface = Color(0xFFFFFFFF)            // Clean white surface
-val PaleSurface = Color(0xFFF3EDF7)           // Recent transaction & panel pale-grey background
-val LavenderAccentCard = Color(0xFFEADDFF)     // Balance card / main accent background
-val TextPrimary = Color(0xFF1D1B20)          // High contrast primary text (charcoal)
-val TextSecondary = Color(0xFF49454F)        // Medium contrast secondary text
-val ActivePill = Color(0xFFEADDFF)            // Navigation active background
-val ActivePillText = Color(0xFF21005D)        // Intense violet active text
+// Light Mode Scheme Values
+val LightBgVal = Color(0xFFFEF7FF)
+val LightSurfaceVal = Color(0xFFF3EDF7)
+val LightSurfaceElevatedVal = Color(0xFFFFFFFF)
+val LightTealPrimaryVal = Color(0xFF6750A4)
+val LightWhiteTextVal = Color(0xFF1D1B20)
+val LightGreyTextVal = Color(0xFF49454F)
+val LightMintIncomeVal = Color(0xFF1B6F1B)
+val LightRubyExpenseVal = Color(0xFFB3261E)
+val LightBorderPaleVal = Color(0x4DCAC4D0)
 
-// Functional Colors
-val PrimaryBrand = Color(0xFF6750A4)          // Brand purple / Chart Segment / Links
-val IncomeForestGreen = Color(0xFF1B6F1B)     // Calm deep green for income flow
-val ExpenseWarmRed = Color(0xFFB3261E)         // Muted deep red for expense outflow
-val WarningAmber = Color(0xFFE65100)          // Warm amber for 80% threshold warnings
-val BorderPale = Color(0x4DCAC4D0)            // Fine border lines (#CAC4D0 at 30% alpha)
+// Gorgeous Slate Dark Mode Scheme Values
+val DarkBgVal = Color(0xFF0D0E12)
+val DarkSurfaceVal = Color(0xFF161820)
+val DarkSurfaceElevatedVal = Color(0xFF1F222D)
+val DarkTealPrimaryVal = Color(0xFF14FFEC)
+val DarkWhiteTextVal = Color(0xFFF5F6F9)
+val DarkGreyTextVal = Color(0xFF9095A6)
+val DarkMintIncomeVal = Color(0xFF00E676)
+val DarkRubyExpenseVal = Color(0xFFFF1744)
+val DarkBorderPaleVal = Color(0x2BFFFFFF)
 
-// ==========================================
-// Compatibility Aliases for Existing Screens
-// ==========================================
-val DarkBg = LightBg                          // Maps dark background style to minimalist light-purple background
-val DarkSurface = PaleSurface                 // Maps dark card surfaces to elegant pale grey-lavender surface
-val DarkSurfaceElevated = AppSurface          // Maps elevated elements to pristine white cards
-val MintIncome = IncomeForestGreen
-val RubyExpense = ExpenseWarmRed
-val TealPrimary = PrimaryBrand
-val AmberWarning = WarningAmber
-val GreyText = TextSecondary
-val WhiteText = TextPrimary
+// Dynamic backing properties for zero-refactor dynamic themes
+var DarkBg by mutableStateOf(DarkBgVal)
+var DarkSurface by mutableStateOf(DarkSurfaceVal)
+var DarkSurfaceElevated by mutableStateOf(DarkSurfaceElevatedVal)
+var MintIncome by mutableStateOf(DarkMintIncomeVal)
+var RubyExpense by mutableStateOf(DarkRubyExpenseVal)
+var TealPrimary by mutableStateOf(DarkTealPrimaryVal)
+var AmberWarning by mutableStateOf(Color(0xFFE65100))
+var GreyText by mutableStateOf(DarkGreyTextVal)
+var WhiteText by mutableStateOf(DarkWhiteTextVal)
+var BorderPale by mutableStateOf(DarkBorderPaleVal)
 
+// Theme update function called dynamically inside MyApplicationTheme Composable
+fun updateThemeColors(darkTheme: Boolean) {
+    if (darkTheme) {
+        DarkBg = DarkBgVal
+        DarkSurface = DarkSurfaceVal
+        DarkSurfaceElevated = DarkSurfaceElevatedVal
+        MintIncome = DarkMintIncomeVal
+        RubyExpense = DarkRubyExpenseVal
+        TealPrimary = DarkTealPrimaryVal
+        GreyText = DarkGreyTextVal
+        WhiteText = DarkWhiteTextVal
+        BorderPale = DarkBorderPaleVal
+    } else {
+        DarkBg = LightBgVal
+        DarkSurface = LightSurfaceVal
+        DarkSurfaceElevated = LightSurfaceElevatedVal
+        MintIncome = LightMintIncomeVal
+        RubyExpense = LightRubyExpenseVal
+        TealPrimary = LightTealPrimaryVal
+        GreyText = LightGreyTextVal
+        WhiteText = LightWhiteTextVal
+        BorderPale = LightBorderPaleVal
+    }
+}

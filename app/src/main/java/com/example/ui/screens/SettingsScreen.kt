@@ -23,6 +23,7 @@ import com.example.ui.viewmodel.FinanceViewModel
 
 @Composable
 fun SettingsScreen(
+    viewModel: FinanceViewModel,
     onBackClick: () -> Unit,
     onNavigateToBudget: () -> Unit,
     onNavigateToSavings: () -> Unit,
@@ -115,6 +116,61 @@ fun SettingsScreen(
             tag = "tile_settings_backup",
             onClick = onNavigateToBackup
         )
+
+        // Theme Selection Card
+        Card(
+            modifier = Modifier.fillMaxWidth().testTag("tile_settings_theme"),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(DarkBg, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Default.Palette, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column {
+                        Text(text = "App Theme Mode", fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 15.sp)
+                        Text(text = "Choose a look that matches your preference", color = GreyText, fontSize = 12.sp)
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(14.dp))
+                
+                val currentTheme by viewModel.themeMode.collectAsState()
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(DarkBg, RoundedCornerShape(8.dp)).padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (mode, label) ->
+                        val isSelected = currentTheme == mode
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
+                                .background(
+                                    color = if (isSelected) TealPrimary else Color.Transparent,
+                                    shape = RoundedCornerShape(6.dp)
+                                )
+                                .clickable { viewModel.setThemeMode(mode) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) DarkBg else WhiteText,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

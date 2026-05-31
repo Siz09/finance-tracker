@@ -29,6 +29,7 @@ fun MyApplicationTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    updateThemeColors(darkTheme)
     MaterialTheme(
         colorScheme = MinimalColorScheme,
         typography = Typography,

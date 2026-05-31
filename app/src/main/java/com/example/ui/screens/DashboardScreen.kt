@@ -18,6 +18,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,6 +50,7 @@ import com.example.data.model.Category
 import com.example.data.model.Transaction
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
+import com.example.ui.components.TransactionCardItem
 import com.example.utils.CurrencyFormatter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -94,6 +98,11 @@ fun DashboardScreen(
         expenseTransactions.groupBy { it.category }.mapValues { entry -> entry.value.sumOf { it.amount } }
     }
     val totalExpenseSum = remember(categorySums) { categorySums.values.sum() }
+
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(transactions) {
+        selectedCategory = null
+    }
 
     var yearMenuExpanded by remember { mutableStateOf(false) }
     val yearsList = listOf("2023", "2024", "2025", "2026", "2027", "2028")
@@ -455,7 +464,12 @@ fun DashboardScreen(
                     } else {
                         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = CardDefaults.cardColors(containerColor = DarkSurface), shape = RoundedCornerShape(16.dp)) {
                             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                DonutChartSection(categorySums, totalExpenseSum)
+                                DonutChartSection(
+                                    categorySums = categorySums,
+                                    totalExpenseSum = totalExpenseSum,
+                                    selectedCategory = selectedCategory,
+                                    onCategorySelected = { selectedCategory = it }
+                                )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 categorySums.keys.forEachIndexed { index, cat ->
                                     val sum = categorySums[cat] ?: 0.0
@@ -464,9 +478,18 @@ fun DashboardScreen(
                                     val emoji = Category.getIcon(cat, "expense")
                                     val budgetLimit = budgets.firstOrNull { it.category.equals(cat, true) }?.monthlyLimit
                                     val budgetWarning = budgetLimit != null && sum >= (budgetLimit * 0.8)
-                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    val isHighlighted = selectedCategory == cat
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isHighlighted) DarkSurfaceElevated else Color.Transparent)
+                                            .clickable { selectedCategory = if (isHighlighted) null else cat }
+                                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                            // Beautiful color matching chart legend indicator
                                             Box(
                                                 modifier = Modifier
                                                     .size(8.dp)
@@ -476,7 +499,7 @@ fun DashboardScreen(
                                             Text(text = emoji, fontSize = 20.sp)
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Column {
-                                                Text(text = cat, fontWeight = FontWeight.SemiBold, color = WhiteText)
+                                                Text(text = cat, fontWeight = FontWeight.SemiBold, color = if (isHighlighted) TealPrimary else WhiteText)
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(text = "$percent% of expenses", style = MaterialTheme.typography.bodySmall, color = GreyText)
                                                     if (budgetWarning && budgetLimit != null) {
@@ -722,7 +745,12 @@ fun DashboardScreen(
 }
 
 @Composable
-fun DonutChartSection(categorySums: Map<String, Double>, totalExpenseSum: Double) {
+fun DonutChartSection(
+    categorySums: Map<String, Double>,
+    totalExpenseSum: Double,
+    selectedCategory: String?,
+    onCategorySelected: (String?) -> Unit
+) {
     var animTriggered by remember { mutableStateOf(false) }
     val progress by animateFloatAsState(
         targetValue = if (animTriggered) 1f else 0f,
@@ -735,64 +763,98 @@ fun DonutChartSection(categorySums: Map<String, Double>, totalExpenseSum: Double
         animTriggered = true
     }
 
-    Box(modifier = Modifier.size(170.dp).padding(12.dp), contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.size(190.dp).padding(8.dp), contentAlignment = Alignment.Center) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(categorySums, totalExpenseSum, selectedCategory) {
+                    detectTapGestures { tapOffset ->
+                        val center = Offset(size.width / 2f, size.height / 2f)
+                        val dx = tapOffset.x - center.x
+                        val dy = tapOffset.y - center.y
+                        val distance = Math.sqrt((dx * dx + dy * dy).toDouble())
+
+                        val outerRadius = size.width / 2f
+                        val innerRadius = outerRadius - 32.dp.toPx()
+
+                        if (distance in innerRadius..outerRadius) {
+                            var angle = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                            angle = (angle + 90f + 360f) % 360f
+
+                            var currentAngle = 0f
+                            var clickedCategory: String? = null
+                            categorySums.forEach { (cat, amount) ->
+                                val sweep = (amount / totalExpenseSum * 360f).toFloat()
+                                if (angle >= currentAngle && angle <= currentAngle + sweep) {
+                                    clickedCategory = cat
+                                }
+                                currentAngle += sweep
+                            }
+
+                            if (clickedCategory == selectedCategory) {
+                                onCategorySelected(null)
+                            } else {
+                                onCategorySelected(clickedCategory)
+                            }
+                        } else {
+                            onCategorySelected(null)
+                        }
+                    }
+                }
+        ) {
             var currentAngle = -90f
             var colorIdx = 0
-            categorySums.forEach { (_, amount) ->
+            categorySums.forEach { (cat, amount) ->
                 val sweep = (amount / totalExpenseSum * 360f).toFloat()
                 val color = CategoryColors[colorIdx % CategoryColors.size]
-                drawArc(color = color, startAngle = currentAngle, sweepAngle = sweep * progress, useCenter = false, style = Stroke(width = 24.dp.toPx()))
+                val isSelected = cat == selectedCategory
+                val strokeWidth = if (isSelected) 30.dp.toPx() else 22.dp.toPx()
+
+                drawArc(
+                    color = color,
+                    startAngle = currentAngle,
+                    sweepAngle = sweep * progress,
+                    useCenter = false,
+                    style = Stroke(width = strokeWidth)
+                )
                 currentAngle += sweep
                 colorIdx++
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(imageVector = Icons.Default.DonutLarge, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(24.dp))
-            Text(text = "My Spend", style = MaterialTheme.typography.labelSmall, color = GreyText, fontWeight = FontWeight.Bold)
-        }
-    }
-}
 
-@Composable
-fun TransactionCardItem(
-    transaction: Transaction,
-    modifier: Modifier = Modifier,
-    onEditClick: () -> Unit
-) {
-    val emoji = remember(transaction) { Category.getIcon(transaction.category, transaction.type) }
-
-    Card(
-        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onEditClick() }.testTag("transaction_card_${transaction.id}"),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Box(modifier = Modifier.size(44.dp).background(DarkSurfaceElevated, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-                    Text(text = emoji, fontSize = 20.sp)
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = transaction.category, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = WhiteText)
-                        if (transaction.imagePath != null) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(imageVector = Icons.Default.Receipt, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(14.dp))
-                        }
-                    }
-                    // Show note if available, always show date below
-                    if (!transaction.note.isNullOrBlank()) {
-                        Text(text = transaction.note, style = MaterialTheme.typography.bodySmall, color = GreyText, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Text(text = transaction.date, style = MaterialTheme.typography.bodySmall, color = GreyText.copy(alpha = 0.7f))
-                }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(28.dp)
+        ) {
+            if (selectedCategory != null) {
+                val sum = categorySums[selectedCategory] ?: 0.0
+                val percent = (sum / totalExpenseSum * 100).toInt()
+                Text(text = Category.getIcon(selectedCategory, "expense"), fontSize = 22.sp)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = selectedCategory,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = TealPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = CurrencyFormatter.format(sum),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    color = WhiteText
+                )
+                Text(text = "$percent%", style = MaterialTheme.typography.labelSmall, color = GreyText)
+            } else {
+                Icon(imageVector = Icons.Default.DonutLarge, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(text = "Total Spend", style = MaterialTheme.typography.labelSmall, color = GreyText, fontWeight = FontWeight.Bold)
+                Text(
+                    text = CurrencyFormatter.format(totalExpenseSum),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = WhiteText
+                )
             }
-            Text(
-                text = (if (transaction.type == "expense") "- " else "+ ") + CurrencyFormatter.format(transaction.amount),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = if (transaction.type == "expense") RubyExpense else MintIncome
-            )
         }
     }
 }
