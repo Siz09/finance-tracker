@@ -9,7 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.GridOn
@@ -87,7 +87,7 @@ fun BackupScreen(
                 title = { Text(text = "Backup & Data Exports", color = WhiteText) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("btn_back_backup")) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = WhiteText)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteText)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
@@ -135,7 +135,7 @@ fun BackupScreen(
                 )
             }
 
-            Divider(color = DarkSurfaceElevated)
+            HorizontalDivider(color = DarkSurfaceElevated)
 
             // Dynamic records metadata count summary
             Card(
@@ -162,7 +162,7 @@ fun BackupScreen(
                     }
 
                     // Receipt image storage size
-                    Divider(color = DarkBg.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(color = DarkBg.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,

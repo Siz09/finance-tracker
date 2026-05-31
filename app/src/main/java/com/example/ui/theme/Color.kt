@@ -39,6 +39,18 @@ var GreyText by mutableStateOf(DarkGreyTextVal)
 var WhiteText by mutableStateOf(DarkWhiteTextVal)
 var BorderPale by mutableStateOf(DarkBorderPaleVal)
 
+// Dynamic backing properties for clean minimalist variables
+var LightBg by mutableStateOf(LightBgVal)
+var AppSurface by mutableStateOf(LightSurfaceElevatedVal)
+var PaleSurface by mutableStateOf(LightSurfaceVal)
+var LavenderAccentCard by mutableStateOf(Color(0xFFEADDFF))
+var TextPrimary by mutableStateOf(LightWhiteTextVal)
+var TextSecondary by mutableStateOf(LightGreyTextVal)
+var ActivePill by mutableStateOf(Color(0xFFEADDFF))
+var ActivePillText by mutableStateOf(Color(0xFF21005D))
+var IncomeForestGreen by mutableStateOf(LightMintIncomeVal)
+var ExpenseWarmRed by mutableStateOf(LightRubyExpenseVal)
+
 // Theme update function called dynamically inside MyApplicationTheme Composable
 fun updateThemeColors(darkTheme: Boolean) {
     if (darkTheme) {
@@ -51,6 +63,17 @@ fun updateThemeColors(darkTheme: Boolean) {
         GreyText = DarkGreyTextVal
         WhiteText = DarkWhiteTextVal
         BorderPale = DarkBorderPaleVal
+        
+        LightBg = DarkBgVal
+        AppSurface = DarkSurfaceElevatedVal
+        PaleSurface = DarkSurfaceVal
+        LavenderAccentCard = Color(0xFF2E234B)
+        TextPrimary = DarkWhiteTextVal
+        TextSecondary = DarkGreyTextVal
+        ActivePill = DarkTealPrimaryVal.copy(alpha = 0.25f)
+        ActivePillText = DarkTealPrimaryVal
+        IncomeForestGreen = DarkMintIncomeVal
+        ExpenseWarmRed = DarkRubyExpenseVal
     } else {
         DarkBg = LightBgVal
         DarkSurface = LightSurfaceVal
@@ -61,5 +84,16 @@ fun updateThemeColors(darkTheme: Boolean) {
         GreyText = LightGreyTextVal
         WhiteText = LightWhiteTextVal
         BorderPale = LightBorderPaleVal
+        
+        LightBg = LightBgVal
+        AppSurface = LightSurfaceElevatedVal
+        PaleSurface = LightSurfaceVal
+        LavenderAccentCard = Color(0xFFEADDFF)
+        TextPrimary = LightWhiteTextVal
+        TextSecondary = LightGreyTextVal
+        ActivePill = Color(0xFFEADDFF)
+        ActivePillText = Color(0xFF21005D)
+        IncomeForestGreen = LightMintIncomeVal
+        ExpenseWarmRed = LightRubyExpenseVal
     }
 }

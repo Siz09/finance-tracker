@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Savings
@@ -51,7 +51,7 @@ fun SavingsGoalScreen(
                 title = { Text(text = "Monthly Savings Goals", color = WhiteText) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("btn_back_savings")) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = WhiteText)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteText)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
@@ -110,7 +110,7 @@ fun SavingsGoalScreen(
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = DarkSurface), shape = RoundedCornerShape(16.dp)) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(text = "Savings Progress", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = WhiteText)
-                    Divider(color = DarkSurfaceElevated)
+                    HorizontalDivider(color = DarkSurfaceElevated)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(text = "Total Income (+)", color = GreyText)
                         Text(text = CurrencyFormatter.format(totalIncome), color = MintIncome, fontWeight = FontWeight.Bold)
@@ -119,7 +119,7 @@ fun SavingsGoalScreen(
                         Text(text = "Total Expense (-)", color = GreyText)
                         Text(text = CurrencyFormatter.format(totalExpense), color = RubyExpense, fontWeight = FontWeight.Bold)
                     }
-                    Divider(color = DarkSurfaceElevated)
+                    HorizontalDivider(color = DarkSurfaceElevated)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
                             Text(text = "Current Net Balance", fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 15.sp)

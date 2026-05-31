@@ -9,8 +9,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -182,7 +182,7 @@ fun ReportsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             val isIncrease = percentageChange > 0
                             Icon(
-                                imageVector = if (isIncrease) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                                imageVector = if (isIncrease) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                                 contentDescription = null,
                                 tint = if (isIncrease) RubyExpense else MintIncome,
                                 modifier = Modifier.size(16.dp)

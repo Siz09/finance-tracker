@@ -355,8 +355,8 @@ fun TransactionsScreen(
                         items(targetList, key = { it.id }) { tx ->
                             TransactionCardItem(
                                 transaction = tx,
-                                modifier = Modifier.animateItemPlacement(
-                                    animationSpec = spring(
+                                modifier = Modifier.animateItem(
+                                    placementSpec = spring(
                                         dampingRatio = Spring.DampingRatioLowBouncy,
                                         stiffness = Spring.StiffnessMediumLow
                                     )

@@ -18,9 +18,12 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -93,7 +97,65 @@ fun DashboardScreen(
         transactions.sortedByDescending { it.date }.take(8)
     }
 
+    val dailyTrendPoints = remember(transactions, selectedMonth) {
+        val sdf = SimpleDateFormat("yyyy-MM", Locale.getDefault())
+        val date = try { sdf.parse(selectedMonth) } catch(e: Exception) { null }
+        val calendar = Calendar.getInstance()
+        if (date != null) {
+            calendar.time = date
+        }
+        val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+        
+        val dayGrouped = transactions.groupBy { tx ->
+            try {
+                val txDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(tx.date)
+                val cal = Calendar.getInstance()
+                if (txDate != null) {
+                    cal.time = txDate
+                    cal.get(Calendar.DAY_OF_MONTH)
+                } else {
+                    1
+                }
+            } catch(e: Exception) {
+                1
+            }
+        }
+        
+        var runningSum = 0.0
+        val trend = FloatArray(daysInMonth)
+        for (day in 1..daysInMonth) {
+            val dayTxs = dayGrouped[day] ?: emptyList()
+            val netChange = dayTxs.sumOf { if (it.type == "income") it.amount else -it.amount }
+            runningSum += netChange
+            trend[day - 1] = runningSum.toFloat()
+        }
+        trend
+    }
+
+    val healthScore = remember(totalIncome, totalExpense) {
+        if (totalIncome <= 0.0) {
+            if (totalExpense > 0.0) 0 else 100
+        } else {
+            val ratio = (totalIncome - totalExpense) / totalIncome
+            val score = (ratio * 100).toInt().coerceIn(0, 100)
+            score
+        }
+    }
+
     val expenseTransactions = remember(transactions) { transactions.filter { it.type == "expense" } }
+
+    val dailyAverageSpend = remember(expenseTransactions, selectedMonth) {
+        if (expenseTransactions.isEmpty()) 0.0
+        else {
+            val calendar = java.util.Calendar.getInstance()
+            val year = selectedMonth.take(4).toIntOrNull() ?: calendar.get(java.util.Calendar.YEAR)
+            val month = selectedMonth.drop(5).toIntOrNull()?.minus(1) ?: calendar.get(java.util.Calendar.MONTH)
+            calendar.set(year, month, 1)
+            val daysInMonth = calendar.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
+            val totalExpense = expenseTransactions.sumOf { it.amount }
+            totalExpense / daysInMonth
+        }
+    }
     val categorySums = remember(expenseTransactions) {
         expenseTransactions.groupBy { it.category }.mapValues { entry -> entry.value.sumOf { it.amount } }
     }
@@ -114,6 +176,45 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxSize().background(DarkBg).padding(horizontal = 16.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = com.example.R.drawable.logo),
+                            contentDescription = "Kharcha Logo",
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                        )
+                        Column {
+                            Text(
+                                text = "KHARCHA",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = WhiteText,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "FINANCE TRACKER",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = TealPrimary,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             // Month Selector Ribbon (Paradigm B - Collapsible & Expandable with zero click highlight & spring physics)
             item {
                 var isExpanded by remember { mutableStateOf(false) }
@@ -325,54 +426,209 @@ fun DashboardScreen(
                 }
             }
 
-            // Balance card
+            // Concept 3: The Glassmorphic 2x2 Card Grid
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Tile 1: Net Balance
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                        shape = RoundedCornerShape(20.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.04f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(TealPrimary.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(imageVector = Icons.Default.AccountBalanceWallet, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(text = "NET BALANCE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = GreyText)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = CurrencyFormatter.format(netBalance), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = WhiteText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    
+                    // Tile 2: Avg Daily Spend
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                        shape = RoundedCornerShape(20.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.04f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(Color(0xFFE5A93B).copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(imageVector = Icons.Default.Speed, contentDescription = null, tint = Color(0xFFE5A93B), modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(text = "AVG DAILY SPEND", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = GreyText)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = CurrencyFormatter.format(dailyAverageSpend), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = WhiteText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+            
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Tile 3: Total Income
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                        shape = RoundedCornerShape(20.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.04f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(MintIncome.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(imageVector = Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = MintIncome, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(text = "TOTAL INCOME", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = GreyText)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = CurrencyFormatter.format(totalIncome), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MintIncome, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    
+                    // Tile 4: Total Expense
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                        shape = RoundedCornerShape(20.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.04f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(RubyExpense.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(imageVector = Icons.AutoMirrored.Filled.TrendingDown, contentDescription = null, tint = RubyExpense, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(text = "TOTAL EXPENSE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = GreyText)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = CurrencyFormatter.format(totalExpense), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = RubyExpense, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+
+            // Concept 2 Premium Savings Index Gauged Dial (Requested by Tri)
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("net_balance_card"),
-                    colors = CardDefaults.cardColors(containerColor = LavenderAccentCard),
-                    shape = RoundedCornerShape(28.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(24.dp)
                 ) {
-                    AnimatedContent(
-                        targetState = selectedMonth,
-                        transitionSpec = {
-                            fadeIn(animationSpec = tween(220)).togetherWith(
-                                fadeOut(animationSpec = tween(220))
+                    Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Favorite,
+                                    contentDescription = null,
+                                    tint = TealPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Monthly Savings Index",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = WhiteText
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Fintech Health",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TealPrimary
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(20.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Radial Gauge Composable
+                            RadialHealthGauge(
+                                score = healthScore,
+                                modifier = Modifier.size(110.dp)
                             )
-                        },
-                        label = "balance_card_animation"
-                    ) { _ ->
-                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            
+                            // Insights Details on the Right
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val rateText = when {
+                                    healthScore >= 70 -> "High Saver"
+                                    healthScore >= 40 -> "Balanced spender"
+                                    else -> "Heavy spender"
+                                }
+                                val rateColor = when {
+                                    healthScore >= 70 -> MintIncome
+                                    healthScore >= 40 -> Color(0xFFFFB703)
+                                    else -> RubyExpense
+                                }
+                                val adviceText = when {
+                                    healthScore >= 70 -> "🎉 Amazing job! You are keeping a strong buffer. Consider moving some surplus to savings targets."
+                                    healthScore >= 40 -> "⚠️ Spending is balanced. Try cutting minor non-essentials to reach your savings targets faster."
+                                    else -> "🚨 Alert! Expenses are high relative to your income. Tap '+' to log a salary or review recent logs."
+                                }
+                                
                                 Column {
-                                    Text(text = "NET BALANCE", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = ActivePillText.copy(alpha = 0.6f), letterSpacing = 1.2.sp)
-                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = CurrencyFormatter.format(netBalance),
-                                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp),
-                                        color = ActivePillText
+                                        text = "STATUS RATING",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = GreyText
+                                    )
+                                    Text(
+                                        text = rateText,
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                                        color = rateColor
                                     )
                                 }
-                                Box(modifier = Modifier.size(44.dp).background(Color.White.copy(alpha = 0.3f), CircleShape), contentAlignment = Alignment.Center) {
-                                    Icon(imageVector = if (netBalance >= 0) Icons.Default.TrendingUp else Icons.Default.TrendingDown, contentDescription = null, tint = ActivePillText, modifier = Modifier.size(24.dp))
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Box(modifier = Modifier.weight(1f).background(Color.White.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).padding(16.dp)) {
-                                    Column {
-                                        Text(text = "INCOME", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ActivePillText.copy(alpha = 0.6f), letterSpacing = 1.sp)
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(text = CurrencyFormatter.format(totalIncome), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = IncomeForestGreen, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                }
-                                Box(modifier = Modifier.weight(1f).background(Color.White.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).padding(16.dp)) {
-                                    Column {
-                                        Text(text = "EXPENSE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ActivePillText.copy(alpha = 0.6f), letterSpacing = 1.sp)
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(text = CurrencyFormatter.format(totalExpense), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = ExpenseWarmRed, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                }
+                                
+                                Text(
+                                    text = adviceText,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp,
+                                    color = WhiteText.copy(alpha = 0.85f),
+                                    fontWeight = FontWeight.Medium
+                                )
                             }
                         }
                     }
@@ -502,10 +758,10 @@ fun DashboardScreen(
                                                 Text(text = cat, fontWeight = FontWeight.SemiBold, color = if (isHighlighted) TealPrimary else WhiteText)
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(text = "$percent% of expenses", style = MaterialTheme.typography.bodySmall, color = GreyText)
-                                                    if (budgetWarning && budgetLimit != null) {
+                                                    if (budgetWarning) {
                                                         Spacer(modifier = Modifier.width(6.dp))
-                                                        val badgeColor = if (sum > budgetLimit) RubyExpense else AmberWarning
-                                                        Text(text = if (sum > budgetLimit) "Over Limit" else "80% Warning", color = badgeColor, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                                                        val badgeColor = if (sum > (budgetLimit ?: 0.0)) RubyExpense else AmberWarning
+                                                        Text(text = if (sum > (budgetLimit ?: 0.0)) "Over Limit" else "80% Warning", color = badgeColor, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
                                                     }
                                                 }
                                             }
@@ -728,8 +984,8 @@ fun DashboardScreen(
                                         showSeeAllSheet = false
                                         onEditTransaction(tx.id)
                                     },
-                                    modifier = Modifier.animateItemPlacement(
-                                        animationSpec = spring(
+                                    modifier = Modifier.animateItem(
+                                        placementSpec = spring(
                                             dampingRatio = Spring.DampingRatioLowBouncy,
                                             stiffness = Spring.StiffnessMediumLow
                                         )
@@ -867,5 +1123,157 @@ fun getFormattedMonthName(monthString: String): String {
         sdfDone.format(date)
     } catch (e: Exception) {
         monthString
+    }
+}
+
+@Composable
+fun SparklineTrendChart(
+    points: FloatArray,
+    modifier: Modifier = Modifier
+) {
+    if (points.isEmpty()) return
+    
+    val minVal = points.minOrNull() ?: 0f
+    val maxVal = points.maxOrNull() ?: 1f
+    val range = (maxVal - minVal).coerceAtLeast(1f)
+    
+    var animTriggered by remember { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (animTriggered) 1f else 0f,
+        animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
+        label = "sparkline_animation"
+    )
+    
+    LaunchedEffect(points) {
+        animTriggered = false
+        kotlinx.coroutines.delay(50)
+        animTriggered = true
+    }
+    
+    Canvas(modifier = modifier) {
+        val width = size.width
+        val height = size.height
+        val stepX = width / (points.size - 1).coerceAtLeast(1)
+        
+        val path = androidx.compose.ui.graphics.Path()
+        val fillPath = androidx.compose.ui.graphics.Path()
+        
+        points.forEachIndexed { idx, value ->
+            val x = idx * stepX
+            val normalizedY = (value - minVal) / range
+            val y = height - (normalizedY * (height - 32.dp.toPx()) + 16.dp.toPx())
+            
+            // Apply scale animation progress
+            val animatedY = height - ((height - y) * progress)
+            
+            if (idx == 0) {
+                path.moveTo(x, animatedY)
+                fillPath.moveTo(x, height)
+                fillPath.lineTo(x, animatedY)
+            } else {
+                path.lineTo(x, animatedY)
+                fillPath.lineTo(x, animatedY)
+            }
+            
+            if (idx == points.size - 1) {
+                fillPath.lineTo(x, height)
+                fillPath.close()
+            }
+        }
+        
+        // Draw the glowing fill gradient under the line
+        drawPath(
+            path = fillPath,
+            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    TealPrimary.copy(alpha = 0.15f),
+                    Color.Transparent
+                )
+            )
+        )
+        
+        // Draw the main curve line
+        drawPath(
+            path = path,
+            color = TealPrimary,
+            style = Stroke(
+                width = 3.dp.toPx(),
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                join = androidx.compose.ui.graphics.StrokeJoin.Round
+            )
+        )
+    }
+}
+
+@Composable
+fun RadialHealthGauge(
+    score: Int,
+    modifier: Modifier = Modifier
+) {
+    var animTriggered by remember { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (animTriggered) score / 100f else 0f,
+        animationSpec = spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+        ),
+        label = "radial_gauge_progress"
+    )
+    
+    LaunchedEffect(score) {
+        animTriggered = false
+        kotlinx.coroutines.delay(50)
+        animTriggered = true
+    }
+    
+    val color = when {
+        score >= 70 -> MintIncome
+        score >= 40 -> Color(0xFFFFB703) // Amber
+        else -> RubyExpense
+    }
+    
+    val statusText = when {
+        score >= 70 -> "Excellent"
+        score >= 40 -> "Moderate"
+        else -> "Critical"
+    }
+    
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.size(110.dp)) {
+            val w = size.width
+            val h = size.height
+            val strokeW = 10.dp.toPx()
+            
+            // Draw background track arc
+            drawArc(
+                color = Color.White.copy(alpha = 0.05f),
+                startAngle = 135f,
+                sweepAngle = 270f,
+                useCenter = false,
+                style = Stroke(width = strokeW, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            )
+            
+            // Draw active arc
+            drawArc(
+                color = color,
+                startAngle = 135f,
+                sweepAngle = 270f * progress,
+                useCenter = false,
+                style = Stroke(width = strokeW, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            )
+        }
+        
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "${(progress * 100).toInt()}",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                color = WhiteText
+            )
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = color
+            )
+        }
     }
 }

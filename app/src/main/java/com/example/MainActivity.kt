@@ -4,12 +4,23 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,13 +44,21 @@ import com.example.ui.viewmodel.FinanceViewModel
 import com.example.utils.BiometricHelper
 import kotlinx.coroutines.flow.collectLatest
 
+data class TabItem(
+    val route: String,
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val tag: String
+)
+
 class MainActivity : FragmentActivity() {
 
     private var isUnlocked by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
 
         setContent {
             val context = LocalContext.current
@@ -53,6 +72,22 @@ class MainActivity : FragmentActivity() {
                 "dark" -> true
                 "light" -> false
                 else -> isSystemInDarkTheme()
+            }
+
+            @Suppress("DEPRECATION")
+            LaunchedEffect(isDark) {
+                val color = if (isDark) {
+                    android.graphics.Color.parseColor("#0B0813") // Matches DarkBgVal
+                } else {
+                    android.graphics.Color.parseColor("#F5F5F7") // Matches LightBgVal
+                }
+                window.statusBarColor = color
+                window.navigationBarColor = color
+
+                val decorView = window.decorView
+                val wic = WindowCompat.getInsetsController(window, decorView)
+                wic.isAppearanceLightStatusBars = !isDark
+                wic.isAppearanceLightNavigationBars = !isDark
             }
 
             MyApplicationTheme(darkTheme = isDark) {
@@ -85,11 +120,12 @@ class MainActivity : FragmentActivity() {
                         contentAlignment = androidx.compose.ui.Alignment.Center
                     ) {
                         Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = null,
-                                tint = com.example.ui.theme.TealPrimary,
-                                modifier = Modifier.size(64.dp)
+                            Image(
+                                painter = painterResource(id = R.drawable.logo),
+                                contentDescription = "Kharcha Logo",
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(RoundedCornerShape(20.dp))
                             )
                             Spacer(modifier = Modifier.padding(12.dp))
                             Text("Kharcha Locked", color = com.example.ui.theme.WhiteText, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -145,7 +181,7 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
 
     val tabs = listOf(
         TabItem("dashboard", "Dashboard", Icons.Default.Dashboard, "tab_dashboard"),
-        TabItem("transactions", "History", Icons.Default.ListAlt, "tab_transactions"),
+        TabItem("transactions", "History", Icons.AutoMirrored.Filled.ListAlt, "tab_transactions"),
         TabItem("settings", "Settings", Icons.Default.Settings, "tab_settings")
     )
 

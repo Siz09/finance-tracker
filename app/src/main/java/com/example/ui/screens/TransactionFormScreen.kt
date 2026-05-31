@@ -835,6 +835,7 @@ fun TransactionFormScreen(
                 }
             }
         }
+    }
     // OCR Overwrite Confirmation Dialogue (Fix #16)
     if (showOcrConfirmationDialog && pendingOcrResult != null) {
         OcrConfirmationDialog(

@@ -15,9 +15,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
-import com.example.ocr.ParsedReceipt
+import com.example.utils.ParsedReceipt
 import com.example.ui.theme.*
 import com.example.utils.ExportHelper
 import java.io.File
@@ -50,7 +51,7 @@ fun OcrConfirmationDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(text = "We scanned the receipt and extracted the following data. Choose which fields you want to apply:", color = GreyText, fontSize = 13.sp)
 
-                Divider(color = DarkSurfaceElevated)
+                HorizontalDivider(color = DarkSurfaceElevated)
 
                 if (ocr.amount != null) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

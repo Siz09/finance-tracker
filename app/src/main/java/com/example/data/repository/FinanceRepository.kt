@@ -47,6 +47,10 @@ class FinanceRepository(private val financeDao: FinanceDao) {
         return financeDao.getBudgetsForMonthSuspend(month)
     }
 
+    suspend fun getBudgetByCategoryAndMonth(category: String, month: String): Budget? {
+        return financeDao.getBudgetByCategoryAndMonth(category, month)
+    }
+
     suspend fun insertBudget(budget: Budget) {
         financeDao.insertBudget(budget)
     }
