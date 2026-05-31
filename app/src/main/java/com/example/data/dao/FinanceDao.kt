@@ -20,6 +20,10 @@ interface FinanceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction)
 
+    // Bulk-insert for JSON restore — IGNORE prevents duplicating existing records.
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertTransactions(transactions: List<Transaction>)
+
     @Update
     suspend fun updateTransaction(transaction: Transaction)
 
@@ -42,6 +46,9 @@ interface FinanceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBudget(budget: Budget)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertBudgets(budgets: List<Budget>)
+
     @Query("DELETE FROM budgets WHERE id = :id")
     suspend fun deleteBudgetById(id: Int)
 
@@ -54,6 +61,9 @@ interface FinanceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSavingsGoal(savingsGoal: SavingsGoal)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSavingsGoals(savingsGoals: List<SavingsGoal>)
 
     // Settings
     @Query("SELECT * FROM settings WHERE `key` = :key LIMIT 1")

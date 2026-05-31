@@ -85,10 +85,11 @@ object ReceiptParser {
 
     private fun isValidAmount(value: Double?): Boolean {
         if (value == null) return false
-        // Filter out years (e.g. 2020 to 2035)
-        if (value >= 2020.0 && value <= 2035.0) return false
         // Filter out 10-digit mobile numbers starting with 9
         if (value >= 9000000000.0 && value <= 9999999999.0) return false
+        // Filter out numbers that look like years (4-digit numbers 1900–2099)
+        // Only reject in fallback path; context-specific extraction (label lookup) bypasses this.
+        if (value == value.toLong().toDouble() && value >= 1900.0 && value <= 2099.0) return false
         return value in 10.0..999999.0
     }
 
@@ -220,8 +221,11 @@ object ReceiptParser {
     // ── Merchant ──────────────────────────────────────────────────────────────
 
     private fun extractMerchant(lines: List<String>): String? {
-        val skip = setOf("send money", "receive money", "payment", "complete", "success", "failed")
-        return lines.firstOrNull { line ->
+        val skip = setOf(
+            "send money", "receive money", "payment", "complete", "success", "failed",
+            "personal use", "business", "transfer", "official use", "family", "friend"
+        )
+        return lines.take(5).firstOrNull { line ->
             line.isNotBlank() &&
             line.length > 2 &&
             !skip.any { line.lowercase().contains(it) } &&
@@ -233,6 +237,11 @@ object ReceiptParser {
     private fun suggestCategory(text: String): String {
         val lower = text.lowercase()
 
+        // 0. Personal transfers / Send Money — check FIRST before any keyword matching
+        //    to avoid misclassifying eSewa "Send Money" receipts as Utilities
+        val transferKeywords = listOf("send money", "receive money", "personal transfer", "personal use", "money transfer")
+        if (transferKeywords.any { lower.contains(it) }) return "Transfer"
+
         // 1. Investments / IPO
         val investmentKeywords = listOf("ipo", "share", "stock", "nepse", "tms", "mutual fund", "investment", "crypto", "bitcoin")
         if (investmentKeywords.any { lower.contains(it) }) return "Investments"
@@ -242,7 +251,8 @@ object ReceiptParser {
         if (foodKeywords.any { lower.contains(it) }) return "Food & Drinks"
 
         // 3. Utilities / Bill Payments
-        val utilityKeywords = listOf("utility", "electricity", "water", "nea", "internet", "wlink", "vianet", "worldlink", "dishhome", "topup", "recharge", "ntc", "ncell", "visa", "visacode", "card", "fee", "tax", "bill", "commission")
+        // Note: "visa" and "visacode" removed — they overlap with personal transfers
+        val utilityKeywords = listOf("utility", "electricity", "water", "nea", "internet", "wlink", "vianet", "worldlink", "dishhome", "topup", "recharge", "ntc", "ncell", "card payment", "fee", "tax", "bill", "commission")
         if (utilityKeywords.any { lower.contains(it) }) return "Utilities"
 
         // 4. Transport / Ride Sharing

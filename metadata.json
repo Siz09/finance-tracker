@@ -2,5 +2,5 @@
   "name": "Finance Tracker",
   "description": "An offline-first, private personal finance tracker, budget planner, and savings goals manager with custom analytics and photo receipt support.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

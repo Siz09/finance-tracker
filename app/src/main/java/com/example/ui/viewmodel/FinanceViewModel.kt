@@ -9,10 +9,13 @@ import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
 import com.example.data.repository.FinanceRepository
 import com.example.notifications.NotificationScheduler
+import com.example.utils.ExportHelper
 import com.example.utils.FileStorageHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -121,30 +124,34 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
             date
         }
         viewModelScope.launch {
-            repository.insertTransaction(
-                Transaction(
-                    type = type,
-                    amount = amount,
-                    category = category,
-                    date = normalizedDate,
-                    note = note,
-                    imagePath = imagePath,
-                    receiverName = receiverName,
-                    receiverId = receiverId,
-                    remarks = remarks,
-                    paymentMethod = paymentMethod,
-                    transactionCode = transactionCode,
-                    processedBy = processedBy,
-                    purpose = purpose,
-                    initiatorName = initiatorName
+            try {
+                repository.insertTransaction(
+                    Transaction(
+                        type = type,
+                        amount = amount,
+                        category = category,
+                        date = normalizedDate,
+                        note = note,
+                        imagePath = imagePath,
+                        receiverName = receiverName,
+                        receiverId = receiverId,
+                        remarks = remarks,
+                        paymentMethod = paymentMethod,
+                        transactionCode = transactionCode,
+                        processedBy = processedBy,
+                        purpose = purpose,
+                        initiatorName = initiatorName
+                    )
                 )
-            )
-            // Auto-switch display to the transaction's month so it shows up instantly
-            val parsedMonth = if (normalizedDate.length >= 7) normalizedDate.substring(0, 7) else null
-            if (parsedMonth != null && parsedMonth.matches(Regex("""^\d{4}-\d{2}$"""))) {
-                selectedMonth.value = parsedMonth
+                // Auto-switch display to the transaction's month so it shows up instantly
+                val parsedMonth = if (normalizedDate.length >= 7) normalizedDate.substring(0, 7) else null
+                if (parsedMonth != null && parsedMonth.matches(Regex("""^\d{4}-\d{2}$"""))) {
+                    selectedMonth.value = parsedMonth
+                }
+                _events.emit(FinanceEvent.Success("Transaction added successfully"))
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to save transaction: ${e.message ?: "Unknown error"}"))
             }
-            _events.emit(FinanceEvent.Success("Transaction added successfully"))
         }
     }
 
@@ -167,88 +174,163 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     ) {
         val normalizedDate = date.replace("/", "-")
         viewModelScope.launch {
-            val existing = repository.getTransactionById(id) ?: return@launch
-            if (existing.imagePath != null && existing.imagePath != imagePath) {
-                FileStorageHelper.deleteImage(existing.imagePath)
-            }
-            repository.updateTransaction(
-                Transaction(
-                    id = id,
-                    type = type,
-                    amount = amount,
-                    category = category,
-                    date = normalizedDate,
-                    note = note,
-                    imagePath = imagePath,
-                    receiverName = receiverName,
-                    receiverId = receiverId,
-                    remarks = remarks,
-                    paymentMethod = paymentMethod,
-                    transactionCode = transactionCode,
-                    processedBy = processedBy,
-                    purpose = purpose,
-                    initiatorName = initiatorName,
-                    createdAt = existing.createdAt
+            try {
+                val existing = repository.getTransactionById(id) ?: run {
+                    _events.emit(FinanceEvent.Error("Transaction not found — it may have been deleted."))
+                    return@launch
+                }
+                if (existing.imagePath != null && existing.imagePath != imagePath) {
+                    FileStorageHelper.deleteImage(existing.imagePath)
+                }
+                repository.updateTransaction(
+                    Transaction(
+                        id = id,
+                        type = type,
+                        amount = amount,
+                        category = category,
+                        date = normalizedDate,
+                        note = note,
+                        imagePath = imagePath,
+                        receiverName = receiverName,
+                        receiverId = receiverId,
+                        remarks = remarks,
+                        paymentMethod = paymentMethod,
+                        transactionCode = transactionCode,
+                        processedBy = processedBy,
+                        purpose = purpose,
+                        initiatorName = initiatorName,
+                        createdAt = existing.createdAt
+                    )
                 )
-            )
-            // Auto-switch display to the transaction's month so it shows up instantly
-            val parsedMonth = if (normalizedDate.length >= 7) normalizedDate.substring(0, 7) else null
-            if (parsedMonth != null && parsedMonth.matches(Regex("""^\d{4}-\d{2}$"""))) {
-                selectedMonth.value = parsedMonth
+                // Auto-switch display to the transaction's month so it shows up instantly
+                val parsedMonth = if (normalizedDate.length >= 7) normalizedDate.substring(0, 7) else null
+                if (parsedMonth != null && parsedMonth.matches(Regex("""^\d{4}-\d{2}$"""))) {
+                    selectedMonth.value = parsedMonth
+                }
+                _events.emit(FinanceEvent.Success("Transaction updated successfully"))
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to update transaction: ${e.message ?: "Unknown error"}"))
             }
-            _events.emit(FinanceEvent.Success("Transaction updated successfully"))
         }
     }
 
     fun deleteTransaction(id: Int) {
         viewModelScope.launch {
-            repository.deleteTransaction(id)
-            _events.emit(FinanceEvent.Success("Transaction deleted successfully"))
+            try {
+                repository.deleteTransaction(id)
+                _events.emit(FinanceEvent.Success("Transaction deleted successfully"))
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to delete transaction: ${e.message ?: "Unknown error"}"))
+            }
         }
     }
 
     // Budget Operations
     fun saveBudget(category: String, limit: Double) {
         viewModelScope.launch {
-            val currentMonth = selectedMonth.value
-            val list = repository.getBudgetsForMonthSuspend(currentMonth)
-            val existing = list.firstOrNull { it.category == category }
-            val newBudget = if (existing != null) {
-                existing.copy(monthlyLimit = limit)
-            } else {
-                Budget(category = category, monthlyLimit = limit, month = currentMonth)
+            try {
+                val currentMonth = selectedMonth.value
+                val list = repository.getBudgetsForMonthSuspend(currentMonth)
+                val existing = list.firstOrNull { it.category == category }
+                val newBudget = if (existing != null) {
+                    existing.copy(monthlyLimit = limit)
+                } else {
+                    Budget(category = category, monthlyLimit = limit, month = currentMonth)
+                }
+                repository.insertBudget(newBudget)
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to save budget: ${e.message ?: "Unknown error"}"))
             }
-            repository.insertBudget(newBudget)
         }
     }
 
     fun deleteBudget(id: Int) {
         viewModelScope.launch {
-            repository.deleteBudgetById(id)
+            try {
+                repository.deleteBudgetById(id)
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to delete budget: ${e.message ?: "Unknown error"}"))
+            }
         }
     }
 
     // Savings Operations
     fun saveSavingsGoal(target: Double) {
         viewModelScope.launch {
-            val currentMonth = selectedMonth.value
-            // Use proper suspend DAO query instead of firstOrNull() on Flow
-            val existing = repository.getSavingsGoalForMonthSuspend(currentMonth)
-            val newGoal = if (existing != null) {
-                existing.copy(target = target)
-            } else {
-                SavingsGoal(target = target, month = currentMonth)
+            try {
+                val currentMonth = selectedMonth.value
+                // Use proper suspend DAO query instead of firstOrNull() on Flow
+                val existing = repository.getSavingsGoalForMonthSuspend(currentMonth)
+                val newGoal = if (existing != null) {
+                    existing.copy(target = target)
+                } else {
+                    SavingsGoal(target = target, month = currentMonth)
+                }
+                repository.insertSavingsGoal(newGoal)
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to save savings goal: ${e.message ?: "Unknown error"}"))
             }
-            repository.insertSavingsGoal(newGoal)
         }
     }
 
     // Notifications configuration
     fun saveReminderTime(context: Context, hour: Int, minute: Int) {
         viewModelScope.launch {
-            val timeStr = String.format(Locale.getDefault(), "%02d:%02d", hour, minute)
-            repository.updateSetting("notification_time", timeStr)
-            NotificationScheduler.scheduleDailyNotification(context, hour, minute)
+            try {
+                val timeStr = String.format(Locale.getDefault(), "%02d:%02d", hour, minute)
+                repository.updateSetting("notification_time", timeStr)
+                NotificationScheduler.scheduleDailyNotification(context, hour, minute)
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to save reminder: ${e.message ?: "Unknown error"}"))
+            }
+        }
+    }
+
+    // ── JSON Import / Restore ─────────────────────────────────────────────────
+
+    /**
+     * Parses the JSON content string from a backup file, validates it, and
+     * bulk-inserts all records into Room using IGNORE conflict strategy.
+     * Emits a [FinanceEvent.Success] with an import summary on completion,
+     * or a [FinanceEvent.Error] if the JSON is invalid or the insert fails.
+     */
+    fun importFromJSON(jsonContent: String) {
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.Default) {
+                    ExportHelper.parseImportedJSON(jsonContent)
+                }
+
+                // Block import if the top-level structure is bad
+                if (result.transactions.isEmpty() && result.budgets.isEmpty() && result.savingsGoals.isEmpty()) {
+                    val msg = if (result.errors.isNotEmpty()) result.errors.first()
+                              else "Nothing to import — the file appears to be empty."
+                    _events.emit(FinanceEvent.Error(msg))
+                    return@launch
+                }
+
+                // Bulk-insert on IO
+                withContext(Dispatchers.IO) {
+                    if (result.transactions.isNotEmpty())
+                        repository.insertTransactions(result.transactions)
+                    if (result.budgets.isNotEmpty())
+                        repository.insertBudgets(result.budgets)
+                    if (result.savingsGoals.isNotEmpty())
+                        repository.insertSavingsGoals(result.savingsGoals)
+                }
+
+                val summary = buildString {
+                    append("Import complete: ")
+                    append("${result.transactions.size} transactions")
+                    if (result.budgets.isNotEmpty()) append(", ${result.budgets.size} budgets")
+                    if (result.savingsGoals.isNotEmpty()) append(", ${result.savingsGoals.size} savings goals")
+                    if (result.errors.isNotEmpty()) append(" (${result.errors.size} skipped)")
+                }
+                _events.emit(FinanceEvent.Success(summary))
+
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Import failed: ${e.message ?: "Unknown error"}"))
+            }
         }
     }
 

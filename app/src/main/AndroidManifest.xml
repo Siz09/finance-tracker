@@ -59,6 +59,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- Disable ML Kit's transitive Firebase Transport from phoning home.
+             This stops TransportRuntime upload attempts for firebase_ml_sdk events. -->
+        <meta-data
+            android:name="firebase_data_collection_default_enabled"
+            android:value="false" />
+
     </application>
 
 </manifest>

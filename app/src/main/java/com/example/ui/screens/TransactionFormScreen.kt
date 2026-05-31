@@ -42,6 +42,9 @@ import com.example.ui.viewmodel.FinanceViewModel
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -121,32 +124,56 @@ fun TransactionFormScreen(
         amtVal != null && amtVal > 0 && category.isNotEmpty()
     }
 
+    // Inline amount validation state — only show error once user has typed something
+    val amountHasError = remember(amount) {
+        amount.isNotBlank() && (amount.toDoubleOrNull() == null || (amount.toDoubleOrNull() ?: 0.0) <= 0.0)
+    }
+
     // Temp file URI for full-res camera capture
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    val coroutineScope = rememberCoroutineScope()
 
     val processImageForOcr = { path: String ->
         val file = File(path)
         if (file.exists()) {
             isScanning = true
-            val image = InputImage.fromFilePath(context, Uri.fromFile(file))
-            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            recognizer.process(image)
-                .addOnSuccessListener { visionText ->
-                    android.util.Log.d("OCR_RAW", visionText.text)
-                    val parsed = ReceiptParser.parse(visionText.text)
+            coroutineScope.launch {
+                try {
+                    val image = InputImage.fromFilePath(context, Uri.fromFile(file))
+                    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    recognizer.process(image)
+                        .addOnSuccessListener { visionText ->
+                            android.util.Log.d("OCR_RAW", visionText.text)
+                            // Move heavy parsing off the main thread to prevent 40-frame jank
+                            coroutineScope.launch {
+                                val parsed = withContext(Dispatchers.Default) {
+                                    ReceiptParser.parse(visionText.text)
+                                }
+                                isScanning = false
+                                if (parsed.amount != null || parsed.date != null ||
+                                    parsed.receiverName != null || parsed.paymentMethod != null) {
+                                    pendingOcrResult = parsed
+                                    showOcrConfirmationDialog = true
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Scanning complete but no relevant fields extracted.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            e.printStackTrace()
+                            isScanning = false
+                            Toast.makeText(context, "OCR failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                } catch (e: Exception) {
                     isScanning = false
-                    if (parsed.amount != null || parsed.date != null || parsed.receiverName != null || parsed.paymentMethod != null) {
-                        pendingOcrResult = parsed
-                        showOcrConfirmationDialog = true
-                    } else {
-                        Toast.makeText(context, "Scanning complete but no relevant fields extracted.", Toast.LENGTH_LONG).show()
-                    }
+                    Toast.makeText(context, "Failed to load image: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
-                .addOnFailureListener { e ->
-                    e.printStackTrace()
-                    isScanning = false
-                    Toast.makeText(context, "OCR failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
+            }
         }
     }
 
@@ -278,10 +305,17 @@ fun TransactionFormScreen(
                 modifier = Modifier.fillMaxWidth().testTag("input_transaction_amount"),
                 placeholder = { Text("Rs. 0", color = GreyText) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = amountHasError,
+                supportingText = if (amountHasError) {
+                    { Text("Enter a valid amount greater than 0", color = RubyExpense) }
+                } else null,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                    focusedBorderColor = if (amountHasError) RubyExpense else TealPrimary,
+                    unfocusedBorderColor = if (amountHasError) RubyExpense else DarkSurfaceElevated,
+                    errorBorderColor = RubyExpense,
                     focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
-                    focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface
+                    focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface,
+                    errorContainerColor = DarkSurface
                 ),
                 shape = RoundedCornerShape(12.dp), singleLine = true
             )
