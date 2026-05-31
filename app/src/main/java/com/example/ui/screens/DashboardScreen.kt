@@ -84,32 +84,9 @@ fun DashboardScreen(
 
     var showSeeAllSheet by remember { mutableStateOf(false) }
 
-    val recentLogs = remember(allTransactions) {
-        allTransactions.filter { tx ->
-            try {
-                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                val txDate = sdf.parse(tx.date) ?: return@filter false
-                
-                val todayCal = Calendar.getInstance().apply {
-                    set(Calendar.HOUR_OF_DAY, 23)
-                    set(Calendar.MINUTE, 59)
-                    set(Calendar.SECOND, 59)
-                    set(Calendar.MILLISECOND, 999)
-                }
-                
-                val limitCal = Calendar.getInstance().apply {
-                    add(Calendar.DAY_OF_YEAR, -7)
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }
-                
-                !txDate.before(limitCal.time) && !txDate.after(todayCal.time)
-            } catch (e: Exception) {
-                false
-            }
-        }.sortedByDescending { it.date }
+    // Recent logs now reflect the dashboard's selected month, not an arbitrary last-7-days window.
+    val recentLogs = remember(transactions) {
+        transactions.sortedByDescending { it.date }.take(8)
     }
 
     val expenseTransactions = remember(transactions) { transactions.filter { it.type == "expense" } }
@@ -527,7 +504,7 @@ fun DashboardScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Recent Logs (Last 7 Days)",
+                        text = "Recent — ${getFormattedMonthName(selectedMonth)}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = WhiteText
