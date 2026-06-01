@@ -10,13 +10,14 @@ import com.example.data.dao.FinanceDao
 import com.example.data.model.Account
 import com.example.data.model.AppSetting
 import com.example.data.model.Budget
+import com.example.data.model.DebtItem
 import com.example.data.model.NetWorthItem
 import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
 
 @Database(
-    entities = [Transaction::class, Budget::class, SavingsGoal::class, AppSetting::class, Account::class, NetWorthItem::class],
-    version = 5,
+    entities = [Transaction::class, Budget::class, SavingsGoal::class, AppSetting::class, Account::class, NetWorthItem::class, DebtItem::class],
+    version = 7,
     exportSchema = false
 )
 abstract class FinanceDatabase : RoomDatabase() {
@@ -96,6 +97,31 @@ abstract class FinanceDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE savings_goals ADD COLUMN name TEXT NOT NULL DEFAULT 'General Goal'")
+                db.execSQL("ALTER TABLE savings_goals ADD COLUMN savedAmount REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE savings_goals ADD COLUMN deadline INTEGER DEFAULT NULL")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS debt_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        totalAmount REAL NOT NULL,
+                        paidAmount REAL NOT NULL,
+                        interestRate REAL NOT NULL,
+                        minPayment REAL NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getDatabase(context: Context): FinanceDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -103,7 +129,7 @@ abstract class FinanceDatabase : RoomDatabase() {
                     FinanceDatabase::class.java,
                     "finance_tracker_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .build()
                 INSTANCE = instance
                 instance

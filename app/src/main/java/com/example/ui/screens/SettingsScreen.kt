@@ -28,6 +28,7 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onNavigateToBudget: () -> Unit,
     onNavigateToSavings: () -> Unit,
+    onNavigateToDebt: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToBackup: () -> Unit,
     onNavigateToAccounts: () -> Unit,
@@ -108,6 +109,15 @@ fun SettingsScreen(
             iconTint = MintIncome,
             tag = "tile_settings_savings",
             onClick = onNavigateToSavings
+        )
+
+        SettingsMenuItem(
+            title = "Debt Payoff Tracker",
+            subtitle = "Track loans, credit cards, and manage payoffs",
+            icon = Icons.Default.CreditScore,
+            iconTint = RubyExpense,
+            tag = "tile_settings_debt",
+            onClick = onNavigateToDebt
         )
 
         SettingsMenuItem(

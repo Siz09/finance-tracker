@@ -1,29 +1,34 @@
 package com.example.ui.screens.settings
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.SavingsGoal
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
 import com.example.utils.CurrencyFormatter
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,190 +36,301 @@ fun SavingsGoalScreen(
     viewModel: FinanceViewModel,
     onBackClick: () -> Unit
 ) {
-    val selectedMonth by viewModel.selectedMonth.collectAsState()
-    val savingsGoal by viewModel.savingsGoal.collectAsState()
-
-    val totalIncome by viewModel.totalIncome.collectAsState()
-    val totalExpense by viewModel.totalExpense.collectAsState()
-    val netBalance by viewModel.netBalance.collectAsState()
-
-    var showEditGoalDialog by remember { mutableStateOf(false) }
-    var showDeleteGoalDialog by remember { mutableStateOf(false) }
-    var inputGoalVal by remember { mutableStateOf("") }
-
-    val goalValue = savingsGoal?.target ?: 0.0
+    val allGoals by viewModel.allSavingsGoals.collectAsState()
+    
+    var showAddDialog by remember { mutableStateOf(false) }
+    var selectedGoalForProgress by remember { mutableStateOf<SavingsGoal?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf<SavingsGoal?>(null) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().background(DarkBg),
         topBar = {
             TopAppBar(
-                title = { Text(text = "Monthly Savings Goals", color = WhiteText) },
+                title = { Text("Savings Goals", color = WhiteText, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick, modifier = Modifier.testTag("btn_back_savings")) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteText)
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteText)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg),
+                actions = {
+                    IconButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Goal", tint = TealPrimary)
+                    }
+                }
             )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(innerPadding).background(DarkBg).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Target banner
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = DarkSurface), shape = RoundedCornerShape(16.dp)) {
-                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(modifier = Modifier.size(60.dp).background(MintIncome.copy(alpha = 0.12f), RoundedCornerShape(30.dp)), contentAlignment = Alignment.Center) {
-                        Icon(imageVector = Icons.Default.Savings, contentDescription = null, tint = MintIncome, modifier = Modifier.size(32.dp))
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = "CURRENT SAVINGS TARGET", fontSize = 11.sp, color = GreyText, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = if (goalValue > 0.0) CurrencyFormatter.format(goalValue) else "Goal not configured yet",
-                            fontSize = 24.sp, fontWeight = FontWeight.ExtraBold,
-                            color = if (goalValue > 0.0) MintIncome else GreyText
-                        )
-                    }
-                    Button(
-                        onClick = {
-                            inputGoalVal = if (goalValue > 0.0) goalValue.toBigDecimal().stripTrailingZeros().toPlainString() else ""
-                            showEditGoalDialog = true
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("btn_configure_savings_goal"),
-                        colors = ButtonDefaults.buttonColors(containerColor = TealPrimary, contentColor = DarkBg),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.Star, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = if (goalValue > 0.0) "Modify Savings Target" else "Configure Savings Goal", fontWeight = FontWeight.Bold)
-                    }
-
-                    // Delete goal button (only when a goal exists)
-                    if (goalValue > 0.0) {
-                        OutlinedButton(
-                            onClick = { showDeleteGoalDialog = true },
-                            modifier = Modifier.fillMaxWidth().testTag("btn_delete_savings_goal"),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = RubyExpense),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Clear Savings Goal", fontWeight = FontWeight.Bold)
-                        }
-                    }
+        },
+        containerColor = DarkBg
+    ) { padding ->
+        if (allGoals.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.LocalActivity, contentDescription = null, tint = GreyText, modifier = Modifier.size(64.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("No Savings Goals Yet", color = WhiteText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Tap + to add your first goal", color = GreyText)
                 }
             }
-
-            // Progress panel
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = DarkSurface), shape = RoundedCornerShape(16.dp)) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(text = "Savings Progress", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = WhiteText)
-                    HorizontalDivider(color = DarkSurfaceElevated)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(text = "Total Income (+)", color = GreyText)
-                        Text(text = CurrencyFormatter.format(totalIncome), color = MintIncome, fontWeight = FontWeight.Bold)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(text = "Total Expense (-)", color = GreyText)
-                        Text(text = CurrencyFormatter.format(totalExpense), color = RubyExpense, fontWeight = FontWeight.Bold)
-                    }
-                    HorizontalDivider(color = DarkSurfaceElevated)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text(text = "Current Net Balance", fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 15.sp)
-                            Text(text = "Auto Calculated Net Savings", fontSize = 11.sp, color = GreyText)
-                        }
-                        Text(text = CurrencyFormatter.format(netBalance), color = if (netBalance >= 0.0) TealPrimary else RubyExpense, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                    }
-
-                    if (goalValue > 0.0) {
-                        val progressNormalized = if (netBalance <= 0) 0f else (netBalance / goalValue).toFloat().coerceIn(0f, 1f)
-                        val progressPercent = if (netBalance <= 0) 0 else (netBalance / goalValue * 100).toInt()
-                        val progressAnim by animateFloatAsState(
-                            targetValue = progressNormalized,
-                            animationSpec = tween(durationMillis = 750, easing = FastOutSlowInEasing),
-                            label = "savings_goal_progress"
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(text = "Achieved: $progressPercent% of savings target!", fontSize = 13.sp, color = GreyText, fontWeight = FontWeight.Bold)
-                        LinearProgressIndicator(
-                            progress = { progressAnim },
-                            modifier = Modifier.fillMaxWidth().height(10.dp),
-                            color = MintIncome, trackColor = DarkSurfaceElevated,
-                            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                        )
-                        if (netBalance >= goalValue) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().background(MintIncome.copy(alpha = 0.12f), RoundedCornerShape(8.dp)).padding(8.dp),
-                                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = MintIncome, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(text = "You achieved your savings target!", color = MintIncome, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Configure/edit dialog
-    if (showEditGoalDialog) {
-        AlertDialog(
-            onDismissRequest = { showEditGoalDialog = false },
-            title = { Text(text = "Configure Savings Goal", color = WhiteText, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(text = "Specify a savings target amount for this month (Rs.):", color = GreyText, fontSize = 13.sp)
-                    OutlinedTextField(
-                        value = inputGoalVal,
-                        onValueChange = { inputGoalVal = it },
-                        modifier = Modifier.fillMaxWidth().testTag("input_edit_savings_target"),
-                        placeholder = { Text("e.g. 5000", color = GreyText) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated, focusedTextColor = WhiteText, unfocusedTextColor = WhiteText, focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface),
-                        shape = RoundedCornerShape(8.dp), singleLine = true
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+            ) {
+                items(allGoals, key = { it.id }) { goal ->
+                    SavingsGoalCard(
+                        goal = goal,
+                        onAddProgress = { selectedGoalForProgress = goal },
+                        onDelete = { showDeleteConfirmDialog = goal }
                     )
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val inputGoal = inputGoalVal.toDoubleOrNull()
-                        if (inputGoal != null && inputGoal >= 0) viewModel.saveSavingsGoal(inputGoal)
-                        showEditGoalDialog = false
-                    },
-                    modifier = Modifier.testTag("btn_confirm_edit_savings"),
-                    colors = ButtonDefaults.buttonColors(containerColor = TealPrimary, contentColor = DarkBg)
-                ) { Text("Save Target") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditGoalDialog = false }, modifier = Modifier.testTag("btn_cancel_edit_savings")) {
-                    Text("Cancel", color = GreyText)
-                }
-            },
-            containerColor = DarkSurfaceElevated
+            }
+        }
+    }
+
+    if (showAddDialog) {
+        AddSavingsGoalDialog(
+            onDismiss = { showAddDialog = false },
+            onConfirm = { name, target, deadline ->
+                viewModel.addSavingsGoal(SavingsGoal(name = name, target = target, deadline = deadline))
+                showAddDialog = false
+            }
         )
     }
 
-    // Delete confirmation dialog
-    if (showDeleteGoalDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteGoalDialog = false },
-            title = { Text("Clear Savings Goal?", color = WhiteText, fontWeight = FontWeight.Bold) },
-            text = { Text("This will remove the savings goal for this month. Your transaction data will not be affected.", color = GreyText) },
-            confirmButton = {
-                Button(
-                    onClick = { viewModel.saveSavingsGoal(0.0); showDeleteGoalDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = RubyExpense)
-                ) { Text("Clear Goal", color = WhiteText) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteGoalDialog = false }) { Text("Cancel", color = TealPrimary) }
-            },
-            containerColor = DarkSurfaceElevated
+    selectedGoalForProgress?.let { goal ->
+        AddProgressDialog(
+            goal = goal,
+            onDismiss = { selectedGoalForProgress = null },
+            onConfirm = { addedAmount ->
+                viewModel.updateSavingsGoal(goal.copy(savedAmount = goal.savedAmount + addedAmount))
+                selectedGoalForProgress = null
+            }
         )
     }
+
+    showDeleteConfirmDialog?.let { goal ->
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = null },
+            title = { Text("Delete Goal", color = WhiteText, fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to delete '${goal.name}'?", color = GreyText) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteSavingsGoal(goal.id)
+                    showDeleteConfirmDialog = null
+                }) {
+                    Text("Delete", color = RubyExpense, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = null }) { Text("Cancel", color = GreyText) }
+            },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+}
+
+@Composable
+fun SavingsGoalCard(goal: SavingsGoal, onAddProgress: () -> Unit, onDelete: () -> Unit) {
+    val progressRatio = (goal.savedAmount / goal.target).coerceIn(0.0, 1.0)
+    val animatedProgress by animateFloatAsState(targetValue = progressRatio.toFloat(), animationSpec = tween(800), label = "progress")
+    val isCompleted = progressRatio >= 1.0
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(40.dp).background(MintIncome.copy(alpha = 0.15f), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(if (isCompleted) Icons.Default.CheckCircle else Icons.Default.Star, contentDescription = null, tint = MintIncome, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(text = goal.name, fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (goal.deadline != null) {
+                            val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                            Text(text = "Target Date: ${sdf.format(Date(goal.deadline))}", color = GreyText, fontSize = 12.sp)
+                        } else {
+                            Text(text = "No deadline", color = GreyText, fontSize = 12.sp)
+                        }
+                    }
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = GreyText, modifier = Modifier.size(18.dp))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = CurrencyFormatter.format(goal.savedAmount), fontWeight = FontWeight.Bold, color = TealPrimary, fontSize = 18.sp)
+                Text(text = "of ${CurrencyFormatter.format(goal.target)}", color = GreyText, fontSize = 14.sp, modifier = Modifier.align(Alignment.Bottom))
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                color = if (isCompleted) MintIncome else TealPrimary,
+                trackColor = DarkSurfaceElevated,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onAddProgress,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isCompleted,
+                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary.copy(alpha = 0.1f), contentColor = TealPrimary)
+            ) {
+                Text(if (isCompleted) "Goal Achieved!" else "Add Funds", fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddSavingsGoalDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, target: Double, deadline: Long?) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var targetStr by remember { mutableStateOf("") }
+    var datePickerState = rememberDatePickerState()
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val isValid = name.isNotBlank() && targetStr.toDoubleOrNull()?.let { it > 0 } == true
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New Savings Goal", color = WhiteText, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text("Goal Name (e.g. Vacation)", color = GreyText) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                        focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                        focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = targetStr, onValueChange = { targetStr = it },
+                    label = { Text("Target Amount (Rs.)", color = GreyText) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                        focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                        focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                OutlinedButton(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TealPrimary),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, TealPrimary)
+                ) {
+                    val dateStr = datePickerState.selectedDateMillis?.let { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(it)) } ?: "Set Deadline (Optional)"
+                    Text(dateStr)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(name.trim(), targetStr.toDouble(), datePickerState.selectedDateMillis) },
+                enabled = isValid,
+                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary, contentColor = DarkBg)
+            ) { Text("Create", fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = GreyText) }
+        },
+        containerColor = DarkSurface,
+        shape = RoundedCornerShape(20.dp)
+    )
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("OK", color = TealPrimary) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false; datePickerState.selectedDateMillis = null }) { Text("Clear", color = GreyText) }
+            },
+            colors = DatePickerDefaults.colors(containerColor = DarkSurface)
+        ) {
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    titleContentColor = WhiteText,
+                    headlineContentColor = TealPrimary,
+                    weekdayContentColor = GreyText,
+                    dayContentColor = WhiteText,
+                    selectedDayContentColor = DarkBg,
+                    selectedDayContainerColor = TealPrimary
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddProgressDialog(
+    goal: SavingsGoal,
+    onDismiss: () -> Unit,
+    onConfirm: (addedAmount: Double) -> Unit
+) {
+    var amountStr by remember { mutableStateOf("") }
+    val isValid = amountStr.toDoubleOrNull()?.let { it > 0 } == true
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Funds to ${goal.name}", color = WhiteText, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("Current: ${CurrencyFormatter.format(goal.savedAmount)} / ${CurrencyFormatter.format(goal.target)}", color = GreyText, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = amountStr, onValueChange = { amountStr = it },
+                    label = { Text("Amount to add (Rs.)", color = GreyText) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                        focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                        focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(amountStr.toDouble()) },
+                enabled = isValid,
+                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary, contentColor = DarkBg)
+            ) { Text("Add Funds", fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = GreyText) }
+        },
+        containerColor = DarkSurface,
+        shape = RoundedCornerShape(20.dp)
+    )
 }

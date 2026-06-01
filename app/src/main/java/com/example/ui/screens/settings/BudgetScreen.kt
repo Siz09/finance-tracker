@@ -37,6 +37,7 @@ fun BudgetScreen(
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val budgets by viewModel.budgets.collectAsState()
     val transactions by viewModel.currentMonthTransactions.collectAsState()
+    val totalIncome by viewModel.totalIncome.collectAsState()
 
     var showEditBudgetDialog by remember { mutableStateOf(false) }
     var selectedCategoryForEdit by remember { mutableStateOf<String?>(null) }
@@ -100,6 +101,40 @@ fun BudgetScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
+                item {
+                    val totalAllocated = budgets.sumOf { it.monthlyLimit }
+                    val unallocated = (totalIncome - totalAllocated).coerceAtLeast(0.0)
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("ENVELOPE BUDGETING SUMMARY", fontSize = 11.sp, color = GreyText, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column {
+                                    Text("Allocated", fontSize = 12.sp, color = GreyText)
+                                    Text(CurrencyFormatter.format(totalAllocated), fontSize = 18.sp, color = TealPrimary, fontWeight = FontWeight.Bold)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Unallocated", fontSize = 12.sp, color = GreyText)
+                                    Text(CurrencyFormatter.format(unallocated), fontSize = 18.sp, color = if (unallocated > 0) MintIncome else RubyExpense, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            val progressRatio = if (totalIncome > 0) (totalAllocated / totalIncome).coerceIn(0.0, 1.0) else 0.0
+                            val animatedProgress by animateFloatAsState(targetValue = progressRatio.toFloat(), animationSpec = tween(800), label = "envelope_progress")
+                            LinearProgressIndicator(
+                                progress = { animatedProgress },
+                                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                                color = if (totalAllocated > totalIncome) RubyExpense else TealPrimary,
+                                trackColor = DarkSurfaceElevated,
+                            )
+                        }
+                    }
+                }
+
                 items(Category.EXPENSES, key = { it.name }) { cat ->
                     val limitBudget = budgets.firstOrNull { it.category.equals(cat.name, true) }
                     val spent = categorySpentMap[cat.name] ?: 0.0

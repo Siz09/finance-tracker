@@ -293,6 +293,7 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
                     }},
                     onNavigateToBudget = { navController.navigate("settings_budget") },
                     onNavigateToSavings = { navController.navigate("settings_savings") },
+                    onNavigateToDebt = { navController.navigate("settings_debt") },
                     onNavigateToNotifications = { navController.navigate("settings_notifications") },
                     onNavigateToBackup = { navController.navigate("settings_backup") },
                     onNavigateToAccounts = { navController.navigate("settings_accounts") },
@@ -369,6 +370,12 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
             }
             composable("settings_savings") {
                 SavingsGoalScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+            composable("settings_debt") {
+                DebtScreen(
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() }
                 )

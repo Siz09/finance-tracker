@@ -334,6 +334,64 @@ fun ReportsScreen(
                 }
             }
 
+            // 50/30/20 Rule Analysis
+            val totalIncome = incomeTransactions.sumOf { it.amount }
+            if (totalIncome > 0) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(text = "50/30/20 RULE ANALYSIS", fontSize = 11.sp, color = GreyText, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        val needsCategories = listOf("Groceries", "Housing", "Bills & Utilities", "Transport", "Health", "Fuel", "EMI")
+                        val wantsCategories = listOf("Dining", "Entertainment", "Shopping", "Food", "Drink", "Alcohol", "Travel", "Personal Care")
+                        val savingsCategories = listOf("Investment", "Savings", "Transfer")
+
+                        val needsSpent = expenseTransactions.filter { needsCategories.contains(it.category) }.sumOf { it.amount }
+                        val wantsSpent = expenseTransactions.filter { wantsCategories.contains(it.category) }.sumOf { it.amount }
+                        val savingsSpent = expenseTransactions.filter { savingsCategories.contains(it.category) }.sumOf { it.amount } // Assuming some expenses are categorized as investments
+
+                        val needsPct = (needsSpent / totalIncome) * 100
+                        val wantsPct = (wantsSpent / totalIncome) * 100
+                        val savingsPct = ((totalIncome - expenseTransactions.sumOf { it.amount } + savingsSpent) / totalIncome) * 100 // Approximation
+
+                        val targetNeeds = 50.0
+                        val targetWants = 30.0
+                        val targetSavings = 20.0
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                Text("Needs", color = WhiteText, fontWeight = FontWeight.Bold)
+                                Text("${needsPct.toInt()}%", color = if (needsPct > targetNeeds) RubyExpense else MintIncome, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                                Text("Target: 50%", color = GreyText, fontSize = 10.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                Text("Wants", color = WhiteText, fontWeight = FontWeight.Bold)
+                                Text("${wantsPct.toInt()}%", color = if (wantsPct > targetWants) RubyExpense else MintIncome, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                                Text("Target: 30%", color = GreyText, fontSize = 10.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                Text("Savings", color = WhiteText, fontWeight = FontWeight.Bold)
+                                Text("${savingsPct.toInt()}%", color = if (savingsPct < targetSavings) RubyExpense else MintIncome, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                                Text("Target: 20%", color = GreyText, fontSize = 10.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Progress Bar
+                        Row(modifier = Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp))) {
+                            if (needsPct > 0) Box(modifier = Modifier.weight(needsPct.toFloat().coerceAtLeast(0.1f)).fillMaxHeight().background(Color(0xFFE63946)))
+                            if (wantsPct > 0) Box(modifier = Modifier.weight(wantsPct.toFloat().coerceAtLeast(0.1f)).fillMaxHeight().background(Color(0xFFF4A261)))
+                            if (savingsPct > 0) Box(modifier = Modifier.weight(savingsPct.toFloat().coerceAtLeast(0.1f)).fillMaxHeight().background(Color(0xFF2A9D8F)))
+                        }
+                    }
+                }
+            }
+
             // Category Breakdown Chart/List
             Card(
                 modifier = Modifier.fillMaxWidth(),

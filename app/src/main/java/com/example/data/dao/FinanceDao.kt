@@ -4,6 +4,7 @@ import androidx.room.*
 import com.example.data.model.Account
 import com.example.data.model.AppSetting
 import com.example.data.model.Budget
+import com.example.data.model.DebtItem
 import com.example.data.model.NetWorthItem
 import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
@@ -58,6 +59,9 @@ interface FinanceDao {
     suspend fun deleteBudgetById(id: Int)
 
     // Savings Goals
+    @Query("SELECT * FROM savings_goals")
+    fun getAllSavingsGoals(): Flow<List<SavingsGoal>>
+
     @Query("SELECT * FROM savings_goals WHERE month = :month LIMIT 1")
     fun getSavingsGoalForMonth(month: String): Flow<SavingsGoal?>
 
@@ -69,6 +73,9 @@ interface FinanceDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSavingsGoals(savingsGoals: List<SavingsGoal>)
+
+    @Query("DELETE FROM savings_goals WHERE id = :id")
+    suspend fun deleteSavingsGoalById(id: Int)
 
     // Settings
     @Query("SELECT * FROM settings WHERE `key` = :key LIMIT 1")
@@ -105,4 +112,14 @@ interface FinanceDao {
 
     @Query("DELETE FROM net_worth_items WHERE id = :id")
     suspend fun deleteNetWorthItemById(id: Int)
+
+    // Debt Items
+    @Query("SELECT * FROM debt_items")
+    fun getAllDebtItems(): Flow<List<DebtItem>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDebtItem(item: DebtItem)
+
+    @Query("DELETE FROM debt_items WHERE id = :id")
+    suspend fun deleteDebtItemById(id: Int)
 }

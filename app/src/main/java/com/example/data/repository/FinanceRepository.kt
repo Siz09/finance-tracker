@@ -4,6 +4,7 @@ import com.example.data.dao.FinanceDao
 import com.example.data.model.Account
 import com.example.data.model.AppSetting
 import com.example.data.model.Budget
+import com.example.data.model.DebtItem
 import com.example.data.model.NetWorthItem
 import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
@@ -60,6 +61,8 @@ class FinanceRepository(private val financeDao: FinanceDao) {
         financeDao.deleteBudgetById(id)
     }
 
+    val allSavingsGoals: Flow<List<SavingsGoal>> = financeDao.getAllSavingsGoals()
+
     fun getSavingsGoalForMonth(month: String): Flow<SavingsGoal?> {
         return financeDao.getSavingsGoalForMonth(month)
     }
@@ -70,6 +73,10 @@ class FinanceRepository(private val financeDao: FinanceDao) {
 
     suspend fun insertSavingsGoal(savingsGoal: SavingsGoal) {
         financeDao.insertSavingsGoal(savingsGoal)
+    }
+
+    suspend fun deleteSavingsGoalById(id: Int) {
+        financeDao.deleteSavingsGoalById(id)
     }
 
     // ── Bulk-import helpers (used by JSON restore) ────────────────────────────
@@ -130,5 +137,16 @@ class FinanceRepository(private val financeDao: FinanceDao) {
 
     suspend fun deleteNetWorthItemById(id: Int) {
         financeDao.deleteNetWorthItemById(id)
+    }
+
+    // Debt Payoff Tracker
+    val allDebtItems: Flow<List<DebtItem>> = financeDao.getAllDebtItems()
+
+    suspend fun insertDebtItem(item: DebtItem) {
+        financeDao.insertDebtItem(item)
+    }
+
+    suspend fun deleteDebtItemById(id: Int) {
+        financeDao.deleteDebtItemById(id)
     }
 }

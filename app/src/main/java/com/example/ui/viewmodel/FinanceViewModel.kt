@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.Account
 import com.example.data.model.Budget
+import com.example.data.model.DebtItem
 import com.example.data.model.NetWorthItem
 import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
@@ -67,10 +68,14 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         repository.getBudgetsForMonth(month)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Savings goal for selected month
+    // Savings goal for selected month (legacy behavior)
     val savingsGoal: StateFlow<SavingsGoal?> = selectedMonth.flatMapLatest { month ->
         repository.getSavingsGoalForMonth(month)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // All savings goals
+    val allSavingsGoals: StateFlow<List<SavingsGoal>> = repository.allSavingsGoals
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Reminder time configuration (e.g. "20:00")
     val reminderTime: StateFlow<String> = repository.getSettingFlow("notification_time")
@@ -299,12 +304,30 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                 val newGoal = if (existing != null) {
                     existing.copy(target = target)
                 } else {
-                    SavingsGoal(target = target, month = currentMonth)
+                    SavingsGoal(name = "Monthly Goal", target = target, month = currentMonth)
                 }
                 repository.insertSavingsGoal(newGoal)
             } catch (e: Exception) {
                 _events.emit(FinanceEvent.Error("Failed to save savings goal: ${e.message ?: "Unknown error"}"))
             }
+        }
+    }
+
+    fun addSavingsGoal(goal: SavingsGoal) {
+        viewModelScope.launch {
+            repository.insertSavingsGoal(goal)
+        }
+    }
+
+    fun deleteSavingsGoal(id: Int) {
+        viewModelScope.launch {
+            repository.deleteSavingsGoalById(id)
+        }
+    }
+
+    fun updateSavingsGoal(goal: SavingsGoal) {
+        viewModelScope.launch {
+            repository.insertSavingsGoal(goal) // Uses REPLACE on conflict
         }
     }
 
@@ -426,6 +449,22 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
 
     fun deleteNetWorthItem(id: Int) {
         viewModelScope.launch { repository.deleteNetWorthItemById(id) }
+    }
+
+    // ── Debt Payoff Tracker ────────────────────────────────────────────────────
+    val allDebtItems: StateFlow<List<DebtItem>> = repository.allDebtItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addDebtItem(item: DebtItem) {
+        viewModelScope.launch { repository.insertDebtItem(item) }
+    }
+
+    fun updateDebtItem(item: DebtItem) {
+        viewModelScope.launch { repository.insertDebtItem(item) } // REPLACE on conflict
+    }
+
+    fun deleteDebtItem(id: Int) {
+        viewModelScope.launch { repository.deleteDebtItemById(id) }
     }
 
     // Factory Class pattern
