@@ -23,6 +23,9 @@ interface FinanceDao {
     @Query("SELECT * FROM transactions WHERE is_recurring = 1")
     fun getRecurringTransactions(): Flow<List<Transaction>>
 
+    @Query("SELECT * FROM transactions WHERE date = :date")
+    suspend fun getTransactionsByDateSync(date: String): List<Transaction>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction)
 
@@ -122,4 +125,24 @@ interface FinanceDao {
 
     @Query("DELETE FROM debt_items WHERE id = :id")
     suspend fun deleteDebtItemById(id: Int)
+
+    // --- Settings Operations ---
+    @Query("SELECT * FROM settings WHERE `key` = :key LIMIT 1")
+    fun getSettingFlow(key: String): Flow<com.example.data.model.AppSetting?>
+
+    @Query("SELECT * FROM settings WHERE `key` = :key LIMIT 1")
+    suspend fun getSetting(key: String): com.example.data.model.AppSetting?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSetting(setting: com.example.data.model.AppSetting)
+
+    // --- Transaction Templates ---
+    @Query("SELECT * FROM transaction_templates")
+    fun getAllTransactionTemplates(): Flow<List<com.example.data.model.TransactionTemplate>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTransactionTemplate(template: com.example.data.model.TransactionTemplate)
+
+    @Query("DELETE FROM transaction_templates WHERE id = :id")
+    suspend fun deleteTransactionTemplateById(id: Int)
 }

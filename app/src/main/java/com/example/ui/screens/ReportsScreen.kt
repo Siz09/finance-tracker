@@ -334,6 +334,42 @@ fun ReportsScreen(
                 }
             }
 
+            // Spending Mood Analysis
+            val totalTransactionsWithMood = expenseTransactions.count { it.mood != null }
+            if (totalTransactionsWithMood > 0) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(text = "SPENDING MOOD", fontSize = 11.sp, color = GreyText, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        val regretCount = expenseTransactions.count { it.mood == "Regret" }
+                        val regretPct = (regretCount.toFloat() / totalTransactionsWithMood) * 100
+                        val isHighRegret = regretPct > 20f
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "😞", fontSize = 28.sp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(text = "Regretful Spending", fontWeight = FontWeight.Bold, color = WhiteText)
+                                    Text(text = "$regretCount out of $totalTransactionsWithMood purchases", color = GreyText, fontSize = 12.sp)
+                                }
+                            }
+                            Text(
+                                text = "${regretPct.toInt()}%",
+                                color = if (isHighRegret) RubyExpense else MintIncome,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 20.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             // 50/30/20 Rule Analysis
             val totalIncome = incomeTransactions.sumOf { it.amount }
             if (totalIncome > 0) {

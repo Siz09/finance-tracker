@@ -16,8 +16,8 @@ import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
 
 @Database(
-    entities = [Transaction::class, Budget::class, SavingsGoal::class, AppSetting::class, Account::class, NetWorthItem::class, DebtItem::class],
-    version = 7,
+    entities = [Transaction::class, Budget::class, SavingsGoal::class, AppSetting::class, Account::class, NetWorthItem::class, DebtItem::class, com.example.data.model.TransactionTemplate::class],
+    version = 9,
     exportSchema = false
 )
 abstract class FinanceDatabase : RoomDatabase() {
@@ -122,6 +122,20 @@ abstract class FinanceDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN mood TEXT DEFAULT NULL")
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `transaction_templates` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `amount` REAL NOT NULL, `category` TEXT NOT NULL, `type` TEXT NOT NULL, `note` TEXT)"
+                )
+            }
+        }
+
         fun getDatabase(context: Context): FinanceDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -129,7 +143,7 @@ abstract class FinanceDatabase : RoomDatabase() {
                     FinanceDatabase::class.java,
                     "finance_tracker_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .build()
                 INSTANCE = instance
                 instance

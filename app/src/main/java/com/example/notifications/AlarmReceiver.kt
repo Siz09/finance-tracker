@@ -30,12 +30,16 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        showNotification(context)
-        
-        // Reschedule alarm for next day
         val db = FinanceDatabase.getDatabase(context)
         val repo = FinanceRepository(db.financeDao())
+
         CoroutineScope(Dispatchers.IO).launch {
+            val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+            val todaysTransactions = repo.getTransactionsByDateSync(todayStr)
+            
+            showNotification(context, todaysTransactions)
+            
+            // Reschedule alarm for next day
             val timeStr = repo.getSetting("notification_time") ?: "20:00"
             val parts = timeStr.split(":")
             val hour = parts.getOrNull(0)?.toIntOrNull() ?: 20
@@ -44,7 +48,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun showNotification(context: Context) {
+    private fun showNotification(context: Context, transactions: List<com.example.data.model.Transaction>) {
         val channelId = "daily_finance_reminder"
         val notificationId = 1001
 
@@ -71,12 +75,47 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Actions
+        val logIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("navigate_to", "add_transaction") // Optional deep link info
+        }
+        val logPendingIntent = PendingIntent.getActivity(
+            context,
+            1,
+            logIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val logAction = NotificationCompat.Action(
+            com.example.R.drawable.ic_launcher_foreground,
+            "Log Expense",
+            logPendingIntent
+        )
+
+        val reviewAction = NotificationCompat.Action(
+            com.example.R.drawable.ic_launcher_foreground,
+            "Review",
+            pendingIntent
+        )
+
+        val expenses = transactions.filter { it.type == "expense" }
+        val totalSpent = expenses.sumOf { it.amount }
+        
+        val contentTitle = if (expenses.isNotEmpty()) "Daily Spending Digest" else "Log Today's Expenses"
+        val contentText = if (expenses.isNotEmpty()) {
+            "You spent Rs. ${String.format("%.2f", totalSpent)} across ${expenses.size} transactions today."
+        } else {
+            "Don't forget to keep your budget on track by logging today's finances!"
+        }
+
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(com.example.R.drawable.ic_launcher_foreground)
-            .setContentTitle("Log Today's Expenses")
-            .setContentText("Don't forget to keep your budget on track by logging today's finances!")
+            .setContentTitle(contentTitle)
+            .setContentText(contentText)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
+            .addAction(reviewAction)
+            .addAction(logAction)
             .setAutoCancel(true)
             .build()
 

@@ -138,6 +138,45 @@ fun SettingsScreen(
             onClick = onNavigateToBackup
         )
 
+        // Spending Lock Card
+        val isSpendingLocked by viewModel.isSpendingLocked.collectAsState()
+        Card(
+            modifier = Modifier.fillMaxWidth().testTag("tile_settings_spending_lock"),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier.size(40.dp).background(DarkBg, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = RubyExpense, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column {
+                        Text(text = "Spending Lock Mode", fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 15.sp)
+                        Text(text = "Block logging new expenses", color = GreyText, fontSize = 12.sp)
+                    }
+                }
+                Switch(
+                    checked = isSpendingLocked,
+                    onCheckedChange = { viewModel.setSpendingLock(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = WhiteText,
+                        checkedTrackColor = RubyExpense,
+                        uncheckedThumbColor = GreyText,
+                        uncheckedTrackColor = DarkBg,
+                        uncheckedBorderColor = DarkSurfaceElevated
+                    )
+                )
+            }
+        }
+
         // Theme Selection Card
         Card(
             modifier = Modifier.fillMaxWidth().testTag("tile_settings_theme"),

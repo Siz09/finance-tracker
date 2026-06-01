@@ -96,6 +96,19 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         .map { it?.value ?: "system" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
 
+    // Spending Lock (Phase 4)
+    val isSpendingLocked: StateFlow<Boolean> = repository.getSettingFlow("spending_lock")
+        .map { it?.value == "true" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setSpendingLock(locked: Boolean) {
+        viewModelScope.launch { repository.updateSetting("spending_lock", locked.toString()) }
+    }
+
+    // Transaction Templates
+    val allTransactionTemplates: StateFlow<List<com.example.data.model.TransactionTemplate>> = repository.allTransactionTemplates
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Navigation and month alteration
     fun selectPreviousMonth() {
         adjustMonth(-1)
@@ -142,7 +155,8 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         initiatorName: String? = null,
         isRecurring: Boolean = false,
         recurrenceFrequency: String? = null,
-        accountId: Int? = null
+        accountId: Int? = null,
+        mood: String? = null
     ) {
         val normalizedDate = if (date.contains("/") && !date.contains("-")) {
             date.replace("/", "-")
@@ -169,7 +183,8 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                         initiatorName = initiatorName,
                         isRecurring = isRecurring,
                         recurrenceFrequency = recurrenceFrequency,
-                        accountId = accountId
+                        accountId = accountId,
+                        mood = mood
                     )
                 )
                 // Auto-switch display to the transaction's month so it shows up instantly
@@ -205,7 +220,8 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         initiatorName: String? = null,
         isRecurring: Boolean = false,
         recurrenceFrequency: String? = null,
-        accountId: Int? = null
+        accountId: Int? = null,
+        mood: String? = null
     ) {
         val normalizedDate = date.replace("/", "-")
         viewModelScope.launch {
@@ -237,7 +253,8 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                         isRecurring = isRecurring,
                         recurrenceFrequency = recurrenceFrequency,
                         accountId = accountId,
-                        createdAt = existing.createdAt
+                        createdAt = existing.createdAt,
+                        mood = mood
                     )
                 )
                 // Auto-switch display to the transaction's month so it shows up instantly
@@ -265,6 +282,23 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                 _events.emit(FinanceEvent.Error("Failed to delete transaction: ${e.message ?: "Unknown error"}"))
             }
         }
+    }
+
+    fun addTransactionTemplate(name: String, amount: Double, category: String, type: String, note: String?) {
+        viewModelScope.launch {
+            try {
+                repository.insertTransactionTemplate(com.example.data.model.TransactionTemplate(
+                    name = name, amount = amount, category = category, type = type, note = note
+                ))
+                _events.emit(FinanceEvent.Success("Template saved successfully"))
+            } catch (e: Exception) {
+                _events.emit(FinanceEvent.Error("Failed to save template: ${e.message}"))
+            }
+        }
+    }
+
+    fun deleteTransactionTemplate(id: Int) {
+        viewModelScope.launch { repository.deleteTransactionTemplateById(id) }
     }
 
     // Budget Operations

@@ -87,8 +87,10 @@ fun TransactionFormScreen(
     var isRecurringState by remember { mutableStateOf(false) }
     var recurrenceFrequencyState by remember { mutableStateOf("monthly") }
     var accountIdState by remember { mutableStateOf<Int?>(null) }
+    var initialMood by remember { mutableStateOf<String?>(null) }
 
     val accounts by viewModel.accounts.collectAsState()
+    val isSpendingLocked by viewModel.isSpendingLocked.collectAsState()
 
     LaunchedEffect(transactionId) {
         if (transactionId != null && transactionId > 0) {
@@ -112,6 +114,7 @@ fun TransactionFormScreen(
                 isRecurringState = tx.isRecurring
                 recurrenceFrequencyState = tx.recurrenceFrequency ?: "monthly"
                 accountIdState = tx.accountId
+                initialMood = tx.mood
             }
         } else {
             initialCategory = Category.EXPENSES.first().name
@@ -333,20 +336,21 @@ fun TransactionFormScreen(
         } catch (e: Exception) { System.currentTimeMillis() }
     )
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize().background(DarkBg),
-        topBar = {
-            TopAppBar(
-                title = { Text(text = if (isEditingMode) "Edit Transaction" else "Add Transaction", color = WhiteText) },
-                navigationIcon = {
-                    IconButton(onClick = onDismiss, modifier = Modifier.testTag("btn_back_form")) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = WhiteText)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
-            )
-        }
-    ) { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize().background(DarkBg),
+            topBar = {
+                TopAppBar(
+                    title = { Text(text = if (isEditingMode) "Edit Transaction" else "Add Transaction", color = WhiteText) },
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss, modifier = Modifier.testTag("btn_back_form")) {
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = WhiteText)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
+                )
+            }
+        ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -765,8 +769,41 @@ fun TransactionFormScreen(
                             )
                         }
                     }
+                    }
                 }
             }
+
+            // Mood Picker (Only for expenses)
+            if (type == "expense") {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(text = "Spending Mood", style = MaterialTheme.typography.labelMedium, color = GreyText)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val moods = listOf("Necessary" to "😐", "Happy" to "😄", "Regret" to "😞", "Impulse" to "⚡")
+                            moods.forEach { (moodName, emoji) ->
+                                FilterChip(
+                                    selected = initialMood == moodName,
+                                    onClick = { initialMood = if (initialMood == moodName) null else moodName },
+                                    label = { Text("$emoji $moodName", fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = TealPrimary.copy(alpha = 0.2f),
+                                        selectedLabelColor = TealPrimary,
+                                        containerColor = DarkSurfaceElevated,
+                                        labelColor = GreyText
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Receipt
             Text(text = "Receipt attachment", style = MaterialTheme.typography.labelLarge, color = GreyText)
@@ -860,7 +897,8 @@ fun TransactionFormScreen(
                             initiatorName = initiatorName,
                             isRecurring = isRecurringState,
                             recurrenceFrequency = if (isRecurringState) recurrenceFrequencyState else null,
-                            accountId = accountIdState
+                            accountId = accountIdState,
+                            mood = initialMood
                         )
                     } else {
                         viewModel.addTransaction(
@@ -874,7 +912,8 @@ fun TransactionFormScreen(
                             initiatorName = initiatorName,
                             isRecurring = isRecurringState,
                             recurrenceFrequency = if (isRecurringState) recurrenceFrequencyState else null,
-                            accountId = accountIdState
+                            accountId = accountIdState,
+                            mood = initialMood
                         )
                     }
                     onDismiss()
@@ -1001,5 +1040,43 @@ fun TransactionFormScreen(
             containerColor = DarkSurface,
             shape = RoundedCornerShape(16.dp)
         )
+    }
+
+    // Spending Lock Overlay
+    if (isSpendingLocked && type == "expense" && !isEditingMode) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f))
+                .clickable(enabled = false) {}, // Intercept touches
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = RubyExpense, modifier = Modifier.size(64.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "SPENDING LOCKED",
+                    color = RubyExpense,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 2.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "You have enabled Spending Lock in Settings. You cannot log new expenses while this is active.",
+                    color = WhiteText,
+                    fontSize = 14.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = TealPrimary, contentColor = DarkBg)
+                ) {
+                    Text("Go Back", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
     }
 }

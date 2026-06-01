@@ -19,6 +19,10 @@ class FinanceRepository(private val financeDao: FinanceDao) {
         return financeDao.getTransactionById(id)
     }
 
+    suspend fun getTransactionsByDateSync(date: String): List<Transaction> {
+        return financeDao.getTransactionsByDateSync(date)
+    }
+
     suspend fun insertTransaction(transaction: Transaction) {
         financeDao.insertTransaction(transaction)
     }
@@ -148,5 +152,16 @@ class FinanceRepository(private val financeDao: FinanceDao) {
 
     suspend fun deleteDebtItemById(id: Int) {
         financeDao.deleteDebtItemById(id)
+    }
+
+    // ── Transaction Templates ────────────────────────────────────────────────
+    val allTransactionTemplates: Flow<List<com.example.data.model.TransactionTemplate>> = financeDao.getAllTransactionTemplates()
+
+    suspend fun insertTransactionTemplate(template: com.example.data.model.TransactionTemplate) {
+        financeDao.insertTransactionTemplate(template)
+    }
+
+    suspend fun deleteTransactionTemplateById(id: Int) {
+        financeDao.deleteTransactionTemplateById(id)
     }
 }

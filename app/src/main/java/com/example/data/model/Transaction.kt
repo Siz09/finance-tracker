@@ -26,5 +26,8 @@ data class Transaction(
     @ColumnInfo(name = "recurrence_frequency") val recurrenceFrequency: String? = null, // "daily"|"weekly"|"monthly"
     // Account / wallet FK (migration v3 → v4)
     @ColumnInfo(name = "account_id") val accountId: Int? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    
+    // Phase 4 fields
+    @ColumnInfo(name = "mood") val mood: String? = null // e.g. "Necessary", "Happy", "Regret", "Impulse"
 )
