@@ -63,7 +63,7 @@ class RecurringWorker(
 
                     // Update parent transaction's date to today to reset the cycle
                     val updatedParent = tx.copy(date = todayStr)
-                    dao.insertTransaction(updatedParent)
+                    dao.updateTransaction(updatedParent)
                 }
             }
             return Result.success()

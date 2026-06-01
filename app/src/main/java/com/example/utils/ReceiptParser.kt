@@ -252,7 +252,7 @@ object ReceiptParser {
 
         // 3. Utilities / Bill Payments
         // Note: "visa" and "visacode" removed — they overlap with personal transfers
-        val utilityKeywords = listOf("utility", "electricity", "water", "nea", "internet", "wlink", "vianet", "worldlink", "dishhome", "topup", "recharge", "ntc", "ncell", "card payment", "fee", "tax", "bill", "commission")
+        val utilityKeywords = listOf("utility", "electricity", "water", "nea", "internet", "wlink", "vianet", "worldlink", "dishhome", "topup", "recharge", "ntc", "ncell", "card payment", "tax", "bill", "commission")
         if (utilityKeywords.any { lower.contains(it) }) return "Utilities"
 
         // 4. Transport / Ride Sharing

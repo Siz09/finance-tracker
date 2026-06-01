@@ -10,10 +10,11 @@ import android.widget.RemoteViews
 import com.example.MainActivity
 import com.example.R
 import com.example.data.database.FinanceDatabase
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,17 +50,24 @@ class FinanceWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_balance, pendingIntent)
 
-            // Fetch DB calculations off-thread
-            CoroutineScope(Dispatchers.IO).launch {
+            // Fetch DB calculations off-thread.
+            // MainScope() is the idiomatic bounded scope for Android components that
+            // have no LifecycleOwner (like AppWidgetProvider / BroadcastReceiver).
+            // It avoids the untracked-scope leak of a raw CoroutineScope(Dispatchers.IO).
+            // The heavy DB read is dispatched to IO; the RemoteViews update is
+            // thread-safe and can also run there.
+            MainScope().launch {
                 try {
-                    val db = FinanceDatabase.getDatabase(context)
-                    val txs = db.financeDao().getAllTransactions().first()
-                    val currentMonth = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
+                    val (income, expense, balance) = withContext(Dispatchers.IO) {
+                        val db = FinanceDatabase.getDatabase(context)
+                        val txs = db.financeDao().getAllTransactions().first()
+                        val currentMonth = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
 
-                    val monthTxs = txs.filter { it.date.startsWith(currentMonth) }
-                    val income = monthTxs.filter { it.type == "income" }.sumOf { it.amount }
-                    val expense = monthTxs.filter { it.type == "expense" }.sumOf { it.amount }
-                    val balance = income - expense
+                        val monthTxs = txs.filter { it.date.startsWith(currentMonth) }
+                        val inc = monthTxs.filter { it.type == "income" }.sumOf { it.amount }
+                        val exp = monthTxs.filter { it.type == "expense" }.sumOf { it.amount }
+                        Triple(inc, exp, inc - exp)
+                    }
 
                     views.setTextViewText(R.id.widget_balance, String.format("Rs. %.2f", balance))
                     views.setTextViewText(R.id.widget_income, String.format("Rs. %.2f", income))
