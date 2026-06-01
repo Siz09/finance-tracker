@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -50,6 +51,8 @@ fun ReportsScreen(
 
     // ── Calculations ──
     val expenses = remember(transactions) { transactions.filter { it.type == "expense" } }
+    val expenseTransactions = expenses
+    val incomeTransactions = remember(transactions) { transactions.filter { it.type == "income" } }
     val totalExpense = remember(expenses) { expenses.sumOf { it.amount } }
 
     val categorySums = remember(expenses) {
@@ -420,9 +423,9 @@ fun ReportsScreen(
 
                         // Progress Bar
                         Row(modifier = Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp))) {
-                            if (needsPct > 0) Box(modifier = Modifier.weight(needsPct.toFloat().coerceAtLeast(0.1f)).fillMaxHeight().background(Color(0xFFE63946)))
-                            if (wantsPct > 0) Box(modifier = Modifier.weight(wantsPct.toFloat().coerceAtLeast(0.1f)).fillMaxHeight().background(Color(0xFFF4A261)))
-                            if (savingsPct > 0) Box(modifier = Modifier.weight(savingsPct.toFloat().coerceAtLeast(0.1f)).fillMaxHeight().background(Color(0xFF2A9D8F)))
+                            if (needsPct > 0.0) Box(modifier = Modifier.weight(needsPct.toFloat().coerceAtLeast(0.1f)).fillMaxHeight().background(Color(0xFFE63946)))
+                            if (wantsPct > 0.0) Box(modifier = Modifier.weight(wantsPct.toFloat().coerceAtLeast(0.1f)).fillMaxHeight().background(Color(0xFFF4A261)))
+                            if (savingsPct > 0.0) Box(modifier = Modifier.weight(savingsPct.toFloat().coerceAtLeast(0.1f)).fillMaxHeight().background(Color(0xFF2A9D8F)))
                         }
                     }
                 }

@@ -13,6 +13,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -42,6 +46,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -59,6 +64,17 @@ import com.example.utils.CurrencyFormatter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
+import kotlin.math.sin
+import kotlin.math.cos
 
 val CategoryColors = listOf(
     TealPrimary,
@@ -73,13 +89,21 @@ val CategoryColors = listOf(
     Color(0xFF38EF7D)
 )
 
+private data class DashboardCircularItem(
+    val icon: ImageVector,
+    val route: String,
+    val color: Color,
+    val label: String
+)
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: FinanceViewModel,
     onNavigateToTransactions: () -> Unit,
     onAddTransactionClick: () -> Unit,
-    onEditTransaction: (Int) -> Unit
+    onEditTransaction: (Int) -> Unit,
+    onNavigateToRoute: (String) -> Unit
 ) {
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val transactions by viewModel.currentMonthTransactions.collectAsState()
@@ -91,6 +115,10 @@ fun DashboardScreen(
     val savingsGoal by viewModel.savingsGoal.collectAsState()
 
     var showSeeAllSheet by remember { mutableStateOf(false) }
+    var isCircularMenuOpen by remember { mutableStateOf(false) }
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    var hoveredIndex by remember { mutableStateOf<Int?>(null) }
+    var isDraggingActive by remember { mutableStateOf(false) }
 
     // Recent logs now reflect the dashboard's selected month, not an arbitrary last-7-days window.
     val recentLogs = remember(transactions) {
@@ -172,6 +200,27 @@ fun DashboardScreen(
     val currentMonthIndex = remember(selectedMonth) { selectedMonth.substring(5).toIntOrNull()?.minus(1) ?: 0 }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // Premium full-screen dimmed backdrop overlay for the circular radial menu
+        val scrimAlpha by animateFloatAsState(
+            targetValue = if (isCircularMenuOpen) 1f else 0f,
+            animationSpec = tween(durationMillis = 200)
+        )
+
+        if (scrimAlpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = scrimAlpha }
+                    .background(Color.Black.copy(alpha = 0.72f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        isCircularMenuOpen = false
+                    }
+            )
+        }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(DarkBg).padding(horizontal = 16.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
@@ -897,17 +946,317 @@ fun DashboardScreen(
             }
         }
 
-        // Quick-add FAB on Dashboard
-        FloatingActionButton(
-            onClick = { onAddTransactionClick() },
+        // Unified Multipurpose Power FAB (Radial Menu Container)
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(bottom = 16.dp, end = 16.dp)
-                .testTag("btn_dashboard_add_transaction"),
-            containerColor = TealPrimary,
-            contentColor = DarkBg
+                .size(260.dp),
+            contentAlignment = Alignment.BottomEnd
         ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = "Add Transaction")
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val hapticFeedback = LocalHapticFeedback.current
+
+            // 1. Staggered Backdrop scale bubble for a glassmorphism blur effect
+            val backdropProgress by animateFloatAsState(
+                targetValue = if (isCircularMenuOpen) 1f else 0f,
+                animationSpec = if (isCircularMenuOpen) {
+                    spring(dampingRatio = 0.58f, stiffness = Spring.StiffnessMedium)
+                } else {
+                    tween(durationMillis = 200)
+                }
+            )
+
+            if (backdropProgress > 0f) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .align(Alignment.BottomEnd)
+                        .graphicsLayer {
+                            val scale = 1f + backdropProgress * 4.5f
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = backdropProgress * 0.12f
+                        }
+                        .clip(CircleShape)
+                        .background(TealPrimary)
+                )
+            }
+
+            // 2. Glowing connective elastic string & reticle (Pinterest-style)
+            if (isCircularMenuOpen && isDraggingActive && dragOffset != Offset.Zero) {
+                Canvas(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Center of the FAB (56.dp size, bottom-end aligned)
+                    val fabCenter = Offset(
+                        x = size.width - 28.dp.toPx(),
+                        y = size.height - 28.dp.toPx()
+                    )
+                    val targetOffset = fabCenter + dragOffset
+
+                    // Shadow/glowing beam
+                    drawLine(
+                        color = TealPrimary.copy(alpha = 0.18f),
+                        start = fabCenter,
+                        end = targetOffset,
+                        strokeWidth = 8.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+
+                    // Core line
+                    drawLine(
+                        brush = Brush.linearGradient(
+                            colors = listOf(TealPrimary, Color(0xFF3B82F6)),
+                            start = fabCenter,
+                            end = targetOffset
+                        ),
+                        start = fabCenter,
+                        end = targetOffset,
+                        strokeWidth = 3.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+
+                    // Fingertip Reticle
+                    drawCircle(
+                        color = TealPrimary.copy(alpha = 0.25f),
+                        radius = 12.dp.toPx(),
+                        center = targetOffset
+                    )
+                    drawCircle(
+                        color = TealPrimary,
+                        radius = 5.dp.toPx(),
+                        center = targetOffset
+                    )
+                }
+            }
+
+            // 3. Quick items declaration
+            val quickItems = remember {
+                listOf(
+                    DashboardCircularItem(Icons.AutoMirrored.Filled.ShowChart, "reports", Color(0xFF38BDF8), "Spending Analytics"),
+                    DashboardCircularItem(Icons.Default.DateRange, "settings_calendar", Color(0xFF34D399), "Cash Flow Calendar"),
+                    DashboardCircularItem(Icons.AutoMirrored.Filled.TrendingUp, "net_worth", Color(0xFFFBBF24), "Net Worth Tracker"),
+                    DashboardCircularItem(Icons.Default.Wallet, "settings_accounts", Color(0xFFF472B6), "Wallets & Accounts"),
+                    DashboardCircularItem(Icons.Default.Layers, "settings_debt", Color(0xFFA78BFA), "Debt Payoff Tracker")
+                )
+            }
+
+            // 4. Unified Crown Status Label positioned statically at one single location
+            AnimatedVisibility(
+                visible = isCircularMenuOpen && hoveredIndex != null,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { -15 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { -15 }),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = (-16).dp)
+            ) {
+                hoveredIndex?.let { idx ->
+                    val item = quickItems[idx]
+                    Box(
+                        modifier = Modifier
+                            .background(DarkSurfaceElevated.copy(alpha = 0.96f), RoundedCornerShape(12.dp))
+                            .border(1.5.dp, item.color.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = item.label,
+                            color = TealPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.3.sp
+                        )
+                    }
+                }
+            }
+
+            // Restored Mathematical 3D arcing coordinates (pointing into the top-left quadrant)
+            // Sweep angles keep Debt Payoff Tracker safe from bottom bar!
+            val startAngle = -12.0
+            val sweepStep = 19.0
+            val radialRadius = 145.dp
+
+            quickItems.forEachIndexed { index, item ->
+                val angleDeg = startAngle - (index * sweepStep)
+                val angleRad = Math.toRadians(angleDeg)
+
+                val itemProgress by animateFloatAsState(
+                    targetValue = if (isCircularMenuOpen) 1f else 0f,
+                    animationSpec = if (isCircularMenuOpen) {
+                        spring(
+                            dampingRatio = 0.55f,
+                            stiffness = Spring.StiffnessMedium - (index * 45f)
+                        )
+                    } else {
+                        tween(durationMillis = 180, delayMillis = index * 20)
+                    }
+                )
+
+                // Bouncy hover scale transition when finger slides over it
+                val hoverScale by animateFloatAsState(
+                    targetValue = if (hoveredIndex == index) 1.25f else 1.0f,
+                    animationSpec = spring(dampingRatio = 0.48f, stiffness = Spring.StiffnessMedium)
+                )
+
+                val radiusPx = with(density) { radialRadius.toPx() }
+                val xOffset = (sin(angleRad) * radiusPx * itemProgress).toInt()
+                val yOffset = (-cos(angleRad) * radiusPx * itemProgress).toInt()
+
+                if (isCircularMenuOpen || itemProgress > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset { IntOffset(xOffset, yOffset) }
+                            .graphicsLayer {
+                                scaleX = itemProgress * hoverScale
+                                scaleY = itemProgress * hoverScale
+                                alpha = itemProgress
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // 1. Icon Circle (UPRIGHT - 0% rotation for elite-tier visual clarity, NO text pop-ups whatsoever)
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = if (hoveredIndex == index) {
+                                            listOf(item.color.copy(alpha = 0.95f), item.color)
+                                        } else {
+                                            listOf(item.color, item.color.copy(alpha = 0.75f))
+                                        }
+                                    )
+                                )
+                                .clickable {
+                                    isCircularMenuOpen = false
+                                    onNavigateToRoute(item.route)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = item.label,
+                                tint = DarkBg,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        // 2. Selection Outer Halo Glow covering the whole circle on hover
+                        if (hoveredIndex == index) {
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp) // Outer circle halo
+                                    .border(2.dp, item.color, CircleShape)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 5. Main Trigger '+' FAB styled symmetrically to History FAB
+            val toggleRotation by animateFloatAsState(
+                targetValue = if (isCircularMenuOpen) 135f else 0f,
+                animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium)
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(16.dp)) // SAME SHAPE as in history (rounded corner FAB shape)
+                    .background(TealPrimary) // SAME COLOR as in history
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            var dragTriggered = false
+                            var accumulatedOffset = Offset.Zero
+
+                            // Touch down: immediately bloom the circular radial menu!
+                            isCircularMenuOpen = true
+                            isDraggingActive = true
+                            dragOffset = Offset.Zero
+                            hoveredIndex = null
+
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val dragChange = event.changes.firstOrNull() ?: break
+
+                                if (dragChange.pressed) {
+                                    accumulatedOffset += dragChange.positionChange()
+                                    dragOffset = accumulatedOffset
+                                    val dist = kotlin.math.sqrt(accumulatedOffset.x * accumulatedOffset.x + accumulatedOffset.y * accumulatedOffset.y)
+                                    val distDp = dist / density.density
+
+                                    if (distDp >= 10.0) {
+                                        dragTriggered = true
+                                    }
+
+                                    if (dragTriggered) {
+                                        // Touch drag selection active area (between 40.dp and 185.dp)
+                                        if (distDp in 40.0..185.0) {
+                                            val angleRad = kotlin.math.atan2(accumulatedOffset.x.toDouble(), (-accumulatedOffset.y).toDouble())
+                                            val angleDeg = Math.toDegrees(angleRad)
+
+                                            var bestIndex = -1
+                                            var minDiff = 999.0
+                                            for (i in 0..4) {
+                                                val itemAngle = startAngle - (i * sweepStep)
+                                                val diff = kotlin.math.abs(angleDeg - itemAngle)
+                                                if (diff < minDiff && diff < 15.0) {
+                                                    minDiff = diff
+                                                    bestIndex = i
+                                                }
+                                            }
+
+                                            if (bestIndex != hoveredIndex) {
+                                                if (bestIndex != -1) {
+                                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                }
+                                                hoveredIndex = if (bestIndex != -1) bestIndex else null
+                                            }
+                                        } else {
+                                            hoveredIndex = null
+                                        }
+                                    }
+                                } else {
+                                    // Touch released!
+                                    isDraggingActive = false
+                                    val finalDist = kotlin.math.sqrt(accumulatedOffset.x * accumulatedOffset.x + accumulatedOffset.y * accumulatedOffset.y)
+                                    val finalDistDp = finalDist / density.density
+
+                                    if (finalDistDp < 10.0) {
+                                        // Treat as standard click to toggle/add transaction
+                                        onAddTransactionClick()
+                                    } else {
+                                        // Navigate to selected tool route
+                                        hoveredIndex?.let { index ->
+                                            val item = quickItems[index]
+                                            onNavigateToRoute(item.route)
+                                        }
+                                    }
+
+                                    // Let go always closes the radial menu instantly
+                                    isCircularMenuOpen = false
+                                    hoveredIndex = null
+                                    dragOffset = Offset.Zero
+                                    break
+                                }
+                            }
+                        }
+                    }
+                    .testTag("btn_dashboard_add_transaction"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add Transaction",
+                    tint = DarkBg, // SAME CONTENT COLOR as in history
+                    modifier = Modifier
+                        .size(26.dp)
+                        .rotate(toggleRotation)
+                )
+            }
         }
 
         // Beautiful Full-Featured See All Bottom Sheet

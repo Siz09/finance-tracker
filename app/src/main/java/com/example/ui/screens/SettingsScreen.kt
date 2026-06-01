@@ -33,7 +33,8 @@ fun SettingsScreen(
     onNavigateToBackup: () -> Unit,
     onNavigateToAccounts: () -> Unit,
     onNavigateToReports: () -> Unit,
-    onNavigateToNetWorth: () -> Unit
+    onNavigateToNetWorth: () -> Unit,
+    onNavigateToCalendar: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -72,6 +73,15 @@ fun SettingsScreen(
             iconTint = TealPrimary,
             tag = "tile_settings_reports",
             onClick = onNavigateToReports
+        )
+
+        SettingsMenuItem(
+            title = "Cash Flow Calendar",
+            subtitle = "Visualise daily net cash flows on a calendar grid",
+            icon = Icons.Default.CalendarMonth,
+            iconTint = Color(0xFFFB8500),
+            tag = "tile_settings_calendar",
+            onClick = onNavigateToCalendar
         )
 
         SettingsMenuItem(
@@ -177,6 +187,45 @@ fun SettingsScreen(
             }
         }
 
+        // Nepal Fiscal Year View Toggle
+        val isNepalFiscalYearActive by viewModel.isNepalFiscalYearActive.collectAsState()
+        Card(
+            modifier = Modifier.fillMaxWidth().testTag("tile_settings_nepal_fy"),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier.size(40.dp).background(DarkBg, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Default.Terrain, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column {
+                        Text(text = "Nepal Fiscal Year Mode", fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 15.sp)
+                        Text(text = "Group analytics by Nepal FY boundaries (Shrawan-Ashad)", color = GreyText, fontSize = 12.sp)
+                    }
+                }
+                Switch(
+                    checked = isNepalFiscalYearActive,
+                    onCheckedChange = { viewModel.setNepalFiscalYearActive(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = WhiteText,
+                        checkedTrackColor = TealPrimary,
+                        uncheckedThumbColor = GreyText,
+                        uncheckedTrackColor = DarkBg,
+                        uncheckedBorderColor = DarkSurfaceElevated
+                    )
+                )
+            }
+        }
+
         // Theme Selection Card
         Card(
             modifier = Modifier.fillMaxWidth().testTag("tile_settings_theme"),
@@ -248,7 +297,7 @@ fun SettingsScreen(
                 fontSize = 14.sp
             )
             Text(
-                text = "v1.1.0.offline — Multi-Wallet, Recurring, Biometric Security",
+                text = "v1.1.0.offline — Multi-Wallet, Recurring, Mindful Budgets",
                 color = GreyText,
                 fontSize = 11.sp
             )

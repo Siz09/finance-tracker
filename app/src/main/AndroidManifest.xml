@@ -5,7 +5,6 @@
     <!-- Core permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <!-- Camera (required for full-resolution photo capture) -->
     <uses-permission android:name="android.permission.CAMERA" />

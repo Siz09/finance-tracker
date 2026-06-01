@@ -50,12 +50,66 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         txs.filter { it.date.startsWith(month) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Current month calculations
-    val totalIncome: StateFlow<Double> = currentMonthTransactions.map { txs ->
+    // Nepal Fiscal Year View (Phase 5)
+    val isNepalFiscalYearActive: StateFlow<Boolean> = repository.getSettingFlow("nepal_fiscal_year")
+        .map { it?.value == "true" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setNepalFiscalYearActive(active: Boolean) {
+        viewModelScope.launch { repository.updateSetting("nepal_fiscal_year", active.toString()) }
+    }
+
+    fun getNepalFiscalYearDateRange(): Pair<String, String> {
+        val cal = Calendar.getInstance()
+        val year = cal.get(Calendar.YEAR)
+        val month = cal.get(Calendar.MONTH) + 1
+        val day = cal.get(Calendar.DAY_OF_MONTH)
+        val fyStartYear = if (month > 7 || (month == 7 && day >= 16)) year else year - 1
+        return Pair("$fyStartYear-07-16", "${fyStartYear + 1}-07-15")
+    }
+
+    fun getNepalFiscalYearLabel(): String {
+        val cal = Calendar.getInstance()
+        val year = cal.get(Calendar.YEAR)
+        val month = cal.get(Calendar.MONTH) + 1
+        val day = cal.get(Calendar.DAY_OF_MONTH)
+        val fyStartYear = if (month > 7 || (month == 7 && day >= 16)) year else year - 1
+        val bsStartYear = fyStartYear + 57
+        return "FY ${bsStartYear}/${(bsStartYear + 1) % 100} BS"
+    }
+
+    val nepalFiscalYearLabel: StateFlow<String> = flow {
+        emit(getNepalFiscalYearLabel())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Nepal FY View")
+
+    val nepalFiscalYearTransactions: StateFlow<List<Transaction>> = combine(
+        allTransactions, isNepalFiscalYearActive
+    ) { txs, active ->
+        if (!active) emptyList()
+        else {
+            val range = getNepalFiscalYearDateRange()
+            txs.filter { it.date >= range.first && it.date <= range.second }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val dashboardTransactions: StateFlow<List<Transaction>> = combine(
+        currentMonthTransactions, nepalFiscalYearTransactions, isNepalFiscalYearActive
+    ) { monthTxs, fyTxs, active ->
+        if (active) fyTxs else monthTxs
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Current calculations (Month or Nepal FY)
+    val totalIncome: StateFlow<Double> = combine(
+        currentMonthTransactions, nepalFiscalYearTransactions, isNepalFiscalYearActive
+    ) { monthTxs, fyTxs, active ->
+        val txs = if (active) fyTxs else monthTxs
         txs.filter { it.type == "income" }.sumOf { it.amount }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
-    val totalExpense: StateFlow<Double> = currentMonthTransactions.map { txs ->
+    val totalExpense: StateFlow<Double> = combine(
+        currentMonthTransactions, nepalFiscalYearTransactions, isNepalFiscalYearActive
+    ) { monthTxs, fyTxs, active ->
+        val txs = if (active) fyTxs else monthTxs
         txs.filter { it.type == "expense" }.sumOf { it.amount }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
@@ -86,10 +140,6 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     val accounts: StateFlow<List<Account>> = repository.allAccounts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // App Lock state flow (Biometrics)
-    val isAppLockEnabled: StateFlow<Boolean> = repository.getSettingFlow("biometric_lock")
-        .map { it?.value == "true" }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     // Theme Mode ("light", "dark", "system")
     val themeMode: StateFlow<String> = repository.getSettingFlow("theme_mode")
@@ -378,16 +428,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         }
     }
 
-    // App Lock (Biometrics) Configuration
-    fun setAppLockEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            try {
-                repository.updateSetting("biometric_lock", enabled.toString())
-            } catch (e: Exception) {
-                _events.emit(FinanceEvent.Error("Failed to update security: ${e.message}"))
-            }
-        }
-    }
+
 
     // Theme Configuration
     fun setThemeMode(mode: String) {

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -41,7 +42,6 @@ import com.example.ui.screens.settings.*
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.FinanceEvent
 import com.example.ui.viewmodel.FinanceViewModel
-import com.example.utils.BiometricHelper
 import kotlinx.coroutines.flow.collectLatest
 
 data class TabItem(
@@ -52,8 +52,6 @@ data class TabItem(
 )
 
 class MainActivity : FragmentActivity() {
-
-    private var isUnlocked by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,60 +89,10 @@ class MainActivity : FragmentActivity() {
             }
 
             MyApplicationTheme(darkTheme = isDark) {
-                val isLockEnabled by viewModel.isAppLockEnabled.collectAsState()
-
-                // Trigger biometric authentication if enabled and not yet unlocked
-                LaunchedEffect(isLockEnabled) {
-                    if (isLockEnabled && !isUnlocked && BiometricHelper.isBiometricAvailable(this@MainActivity)) {
-                        BiometricHelper.showBiometricPrompt(
-                            activity = this@MainActivity,
-                            onSuccess = { isUnlocked = true },
-                            onFailure = { 
-                                // Silent retry or wait for user manual unlock tap
-                            }
-                        )
-                    } else {
-                        isUnlocked = true
-                    }
+                val startDest = remember {
+                    if (intent?.action == "com.example.ACTION_ADD_TRANSACTION") "add_transaction" else "dashboard"
                 }
-
-                if (isUnlocked) {
-                    val startDest = remember {
-                        if (intent?.action == "com.example.ACTION_ADD_TRANSACTION") "add_transaction" else "dashboard"
-                    }
-                    MainAppContainer(viewModel = viewModel, startDestination = startDest)
-                } else {
-                    // Modern premium glassmorphic lock screen
-                    Box(
-                        modifier = Modifier.fillMaxSize().background(com.example.ui.theme.DarkBg),
-                        contentAlignment = androidx.compose.ui.Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                            Image(
-                                painter = painterResource(id = R.drawable.logo),
-                                contentDescription = "Kharcha Logo",
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                            )
-                            Spacer(modifier = Modifier.padding(12.dp))
-                            Text("Kharcha Locked", color = com.example.ui.theme.WhiteText, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                            Spacer(modifier = Modifier.padding(8.dp))
-                            Button(
-                                onClick = {
-                                    BiometricHelper.showBiometricPrompt(
-                                        activity = this@MainActivity,
-                                        onSuccess = { isUnlocked = true },
-                                        onFailure = {}
-                                    )
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = com.example.ui.theme.TealPrimary)
-                            ) {
-                                Text("Unlock App", color = com.example.ui.theme.DarkBg)
-                            }
-                        }
-                    }
-                }
+                MainAppContainer(viewModel = viewModel, startDestination = startDest)
             }
         }
     }
@@ -270,7 +218,8 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
                         }
                     },
                     onAddTransactionClick = { navController.navigate("add_transaction") },
-                    onEditTransaction = { id -> navController.navigate("edit_transaction/$id") }
+                    onEditTransaction = { id -> navController.navigate("edit_transaction/$id") },
+                    onNavigateToRoute = { route -> navController.navigate(route) }
                 )
             }
             composable("transactions") {
@@ -298,7 +247,8 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
                     onNavigateToBackup = { navController.navigate("settings_backup") },
                     onNavigateToAccounts = { navController.navigate("settings_accounts") },
                     onNavigateToReports = { navController.navigate("reports") },
-                    onNavigateToNetWorth = { navController.navigate("net_worth") }
+                    onNavigateToNetWorth = { navController.navigate("net_worth") },
+                    onNavigateToCalendar = { navController.navigate("settings_calendar") }
                 )
             }
             composable(
@@ -374,7 +324,21 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
                     onBackClick = { navController.popBackStack() }
                 )
             }
-            composable("settings_debt") {
+            composable(
+                route = "settings_debt",
+                enterTransition = {
+                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(280))
+                },
+                exitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(320, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(220))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(250))
+                },
+                popExitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                }
+            ) {
                 DebtScreen(
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() }
@@ -392,22 +356,85 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
                     onBackClick = { navController.popBackStack() }
                 )
             }
-            composable("settings_accounts") {
+            composable(
+                route = "settings_accounts",
+                enterTransition = {
+                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(280))
+                },
+                exitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(320, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(220))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(250))
+                },
+                popExitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                }
+            ) {
                 AccountsScreen(
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() }
                 )
             }
-            composable("reports") {
+            composable(
+                route = "reports",
+                enterTransition = {
+                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(280))
+                },
+                exitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(320, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(220))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(250))
+                },
+                popExitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                }
+            ) {
                 ReportsScreen(
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() }
                 )
             }
-            composable("net_worth") {
+            composable(
+                route = "net_worth",
+                enterTransition = {
+                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(280))
+                },
+                exitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(320, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(220))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(250))
+                },
+                popExitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                }
+            ) {
                 NetWorthScreen(
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "settings_calendar",
+                enterTransition = {
+                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(280))
+                },
+                exitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(320, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(220))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(250))
+                },
+                popExitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(380, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                }
+            ) {
+                CalendarScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onEditTransaction = { id -> navController.navigate("edit_transaction/$id") }
                 )
             }
         }

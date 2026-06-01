@@ -111,14 +111,4 @@ class FinanceViewModelTest {
         val finalTheme = viewModel.themeMode.first()
         assertEquals("light", finalTheme)
     }
-
-    @Test
-    fun `settings - biometricLock flow updates reactively on setAppLockEnabled call`() = runTest {
-        val initialLock = viewModel.isAppLockEnabled.first()
-        assertFalse(initialLock)
-
-        viewModel.setAppLockEnabled(true)
-        val updatedLock = viewModel.isAppLockEnabled.first()
-        assertTrue(updatedLock)
-    }
 }
