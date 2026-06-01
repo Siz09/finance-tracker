@@ -45,9 +45,12 @@ fun ReportsScreen(
     viewModel: FinanceViewModel,
     onBackClick: () -> Unit
 ) {
-    val transactions by viewModel.currentMonthTransactions.collectAsState()
+    // Use dashboardTransactions to support Nepal Fiscal Year Mode globally
+    val transactions by viewModel.dashboardTransactions.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
+    val isNepalFiscalYearActive by viewModel.isNepalFiscalYearActive.collectAsState()
+    val nepalFiscalYearLabel by viewModel.nepalFiscalYearLabel.collectAsState()
 
     // ── Calculations ──
     val expenses = remember(transactions) { transactions.filter { it.type == "expense" } }
@@ -210,7 +213,7 @@ fun ReportsScreen(
                             }
                         }
                         Text(
-                            text = "Analysis for $formattedMonth",
+                            text = if (isNepalFiscalYearActive) "Analysis for $nepalFiscalYearLabel" else "Analysis for $formattedMonth",
                             style = MaterialTheme.typography.bodySmall,
                             color = GreyText
                         )

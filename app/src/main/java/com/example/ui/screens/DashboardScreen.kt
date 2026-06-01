@@ -106,7 +106,9 @@ fun DashboardScreen(
     onNavigateToRoute: (String) -> Unit
 ) {
     val selectedMonth by viewModel.selectedMonth.collectAsState()
-    val transactions by viewModel.currentMonthTransactions.collectAsState()
+    val isNepalFiscalYearActive by viewModel.isNepalFiscalYearActive.collectAsState()
+    val nepalFiscalYearLabel by viewModel.nepalFiscalYearLabel.collectAsState()
+    val transactions by viewModel.dashboardTransactions.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
     val totalIncome by viewModel.totalIncome.collectAsState()
     val totalExpense by viewModel.totalExpense.collectAsState()
@@ -291,14 +293,16 @@ fun DashboardScreen(
                                     interactionSource = interactionSource,
                                     indication = null // Completely removes any touch splash/ripple highlights
                                 ) {
-                                    isExpanded = !isExpanded
+                                    if (!isNepalFiscalYearActive) {
+                                        isExpanded = !isExpanded
+                                    }
                                 }
                                 .padding(horizontal = 20.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val rotationState by animateFloatAsState(
-                                targetValue = if (isExpanded) 180f else 0f,
+                                targetValue = if (isExpanded && !isNepalFiscalYearActive) 180f else 0f,
                                 animationSpec = spring(
                                     dampingRatio = Spring.DampingRatioLowBouncy,
                                     stiffness = Spring.StiffnessMediumLow
@@ -312,21 +316,21 @@ fun DashboardScreen(
                             ) {
                                 Column {
                                     Text(
-                                        text = getFormattedMonthName(selectedMonth),
+                                        text = if (isNepalFiscalYearActive) nepalFiscalYearLabel else getFormattedMonthName(selectedMonth),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = WhiteText
                                     )
                                     Text(
-                                        text = if (isExpanded) "Tap to collapse" else "Tap to change month",
+                                        text = if (isNepalFiscalYearActive) "Nepal Fiscal Year Active" else if (isExpanded) "Tap to collapse" else "Tap to change month",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = GreyText
+                                        color = if (isNepalFiscalYearActive) TealPrimary else GreyText
                                     )
                                 }
                                 Icon(
                                     imageVector = Icons.Default.KeyboardArrowDown,
                                     contentDescription = null,
-                                    tint = TealPrimary,
+                                    tint = if (isNepalFiscalYearActive) Color.Transparent else TealPrimary,
                                     modifier = Modifier
                                         .size(24.dp)
                                         .graphicsLayer(rotationZ = rotationState)
@@ -1171,15 +1175,34 @@ fun DashboardScreen(
                             val down = awaitFirstDown()
                             var dragTriggered = false
                             var accumulatedOffset = Offset.Zero
+                            var menuOpened = false
 
-                            // Touch down: immediately bloom the circular radial menu!
-                            isCircularMenuOpen = true
                             isDraggingActive = true
                             dragOffset = Offset.Zero
                             hoveredIndex = null
 
+                            val startTime = System.currentTimeMillis()
+
                             while (true) {
-                                val event = awaitPointerEvent()
+                                val remainingTime = 200L - (System.currentTimeMillis() - startTime)
+                                val event = if (remainingTime > 0 && !menuOpened) {
+                                    withTimeoutOrNull(remainingTime) {
+                                        awaitPointerEvent()
+                                    }
+                                } else {
+                                    awaitPointerEvent()
+                                }
+
+                                if (event == null) {
+                                    // Timeout reached: user is holding finger still, trigger circular radial menu!
+                                    if (!menuOpened) {
+                                        menuOpened = true
+                                        isCircularMenuOpen = true
+                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                    continue
+                                }
+
                                 val dragChange = event.changes.firstOrNull() ?: break
 
                                 if (dragChange.pressed) {
@@ -1190,9 +1213,14 @@ fun DashboardScreen(
 
                                     if (distDp >= 10.0) {
                                         dragTriggered = true
+                                        if (!menuOpened) {
+                                            menuOpened = true
+                                            isCircularMenuOpen = true
+                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
                                     }
 
-                                    if (dragTriggered) {
+                                    if (menuOpened && dragTriggered) {
                                         // Touch drag selection active area (between 40.dp and 185.dp)
                                         if (distDp in 40.0..185.0) {
                                             val angleRad = kotlin.math.atan2(accumulatedOffset.x.toDouble(), (-accumulatedOffset.y).toDouble())
@@ -1222,14 +1250,11 @@ fun DashboardScreen(
                                 } else {
                                     // Touch released!
                                     isDraggingActive = false
-                                    val finalDist = kotlin.math.sqrt(accumulatedOffset.x * accumulatedOffset.x + accumulatedOffset.y * accumulatedOffset.y)
-                                    val finalDistDp = finalDist / density.density
-
-                                    if (finalDistDp < 10.0) {
-                                        // Treat as standard click to toggle/add transaction
+                                    if (!menuOpened) {
+                                        // Quick tap: immediately trigger new transaction form
                                         onAddTransactionClick()
                                     } else {
-                                        // Navigate to selected tool route
+                                        // Drag/Hold released: navigate to selected tool route
                                         hoveredIndex?.let { index ->
                                             val item = quickItems[index]
                                             onNavigateToRoute(item.route)

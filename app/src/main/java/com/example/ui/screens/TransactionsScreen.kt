@@ -25,6 +25,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -50,9 +51,11 @@ fun TransactionsScreen(
     onAddTransactionClick: () -> Unit,
     onEditTransactionClick: (Int) -> Unit
 ) {
-    // Use currentMonthTransactions so list matches Dashboard's selected month
-    val transactions by viewModel.currentMonthTransactions.collectAsState()
+    // Use dashboardTransactions to support Nepal Fiscal Year Mode globally
+    val transactions by viewModel.dashboardTransactions.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
+    val isNepalFiscalYearActive by viewModel.isNepalFiscalYearActive.collectAsState()
+    val nepalFiscalYearLabel by viewModel.nepalFiscalYearLabel.collectAsState()
 
     var filterType by remember { mutableStateOf("all") }
     var searchQuery by remember { mutableStateOf("") }
@@ -121,14 +124,16 @@ fun TransactionsScreen(
                                 interactionSource = interactionSource,
                                 indication = null
                             ) {
-                                isExpanded = !isExpanded
+                                if (!isNepalFiscalYearActive) {
+                                    isExpanded = !isExpanded
+                                }
                             }
                             .padding(horizontal = 20.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val rotationState by animateFloatAsState(
-                            targetValue = if (isExpanded) 180f else 0f,
+                            targetValue = if (isExpanded && !isNepalFiscalYearActive) 180f else 0f,
                             animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioLowBouncy,
                                 stiffness = Spring.StiffnessMediumLow
@@ -142,21 +147,21 @@ fun TransactionsScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = getFormattedMonthName(selectedMonth),
+                                    text = if (isNepalFiscalYearActive) nepalFiscalYearLabel else getFormattedMonthName(selectedMonth),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = WhiteText
                                 )
                                 Text(
-                                    text = if (isExpanded) "Tap to collapse" else "Tap to change month",
+                                    text = if (isNepalFiscalYearActive) "Nepal Fiscal Year Active" else if (isExpanded) "Tap to collapse" else "Tap to change month",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = GreyText
+                                    color = if (isNepalFiscalYearActive) TealPrimary else GreyText
                                 )
                             }
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = null,
-                                tint = TealPrimary,
+                                tint = if (isNepalFiscalYearActive) Color.Transparent else TealPrimary,
                                 modifier = Modifier
                                     .size(24.dp)
                                     .graphicsLayer(rotationZ = rotationState)
