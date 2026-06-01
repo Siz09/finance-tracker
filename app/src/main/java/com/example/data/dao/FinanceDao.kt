@@ -4,6 +4,7 @@ import androidx.room.*
 import com.example.data.model.Account
 import com.example.data.model.AppSetting
 import com.example.data.model.Budget
+import com.example.data.model.NetWorthItem
 import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
 import kotlinx.coroutines.flow.Flow
@@ -94,4 +95,14 @@ interface FinanceDao {
 
     @Query("DELETE FROM accounts WHERE id = :id")
     suspend fun deleteAccountById(id: Int)
+
+    // Net Worth Items
+    @Query("SELECT * FROM net_worth_items ORDER BY createdAt DESC")
+    fun getAllNetWorthItems(): Flow<List<NetWorthItem>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNetWorthItem(item: NetWorthItem)
+
+    @Query("DELETE FROM net_worth_items WHERE id = :id")
+    suspend fun deleteNetWorthItemById(id: Int)
 }

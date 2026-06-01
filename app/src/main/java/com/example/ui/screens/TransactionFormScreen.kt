@@ -1,9 +1,14 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +42,7 @@ import com.example.utils.ExportHelper
 import com.example.utils.FileStorageHelper
 import com.example.utils.ReceiptParser
 import com.example.utils.ParsedReceipt
+import com.example.utils.VoiceParser
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
 import com.example.ui.components.OcrConfirmationDialog
@@ -269,6 +275,56 @@ fun TransactionFormScreen(
         }
     }
 
+    // ── Voice-to-Transaction ────────────────────────────────────────────────────
+    var isListening by remember { mutableStateOf(false) }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) Toast.makeText(context, "Microphone permission required for voice input", Toast.LENGTH_LONG).show()
+    }
+
+    fun triggerVoiceInput() {
+        val hasPerm = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (!hasPerm) { micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO); return }
+
+        isListening = true
+        val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toString())
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        recognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(p: Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(v: Float) {}
+            override fun onBufferReceived(b: ByteArray?) {}
+            override fun onEndOfSpeech() { isListening = false }
+            override fun onPartialResults(r: Bundle?) {}
+            override fun onEvent(t: Int, p: Bundle?) {}
+            override fun onError(err: Int) {
+                isListening = false
+                recognizer.destroy()
+                Toast.makeText(context, "Voice error — please try again", Toast.LENGTH_SHORT).show()
+            }
+            override fun onResults(results: Bundle?) {
+                isListening = false
+                val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                if (spoken != null) {
+                    val parsed = VoiceParser.parse(spoken)
+                    if (parsed.amount != null) amount = parsed.amount.toString()
+                    type = parsed.type
+                    category = parsed.category
+                    if (!parsed.note.isNullOrBlank()) note = parsed.note
+                    Toast.makeText(context, "Voice: ${parsed.type} Rs.${parsed.amount ?: 0} · ${parsed.category}", Toast.LENGTH_LONG).show()
+                }
+                recognizer.destroy()
+            }
+        })
+        recognizer.startListening(intent)
+    }
+
     // DatePickerDialog state
     val calendar = Calendar.getInstance()
     val datePickerState = rememberDatePickerState(
@@ -321,6 +377,18 @@ fun TransactionFormScreen(
                 supportingText = if (amountHasError) {
                     { Text("Enter a valid amount greater than 0", color = RubyExpense) }
                 } else null,
+                trailingIcon = {
+                    IconButton(
+                        onClick = { triggerVoiceInput() },
+                        modifier = Modifier.testTag("btn_voice_input")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Voice Input",
+                            tint = if (isListening) TealPrimary else GreyText
+                        )
+                    }
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (amountHasError) RubyExpense else TealPrimary,
                     unfocusedBorderColor = if (amountHasError) RubyExpense else DarkSurfaceElevated,
@@ -901,6 +969,37 @@ fun TransactionFormScreen(
             photoPath = photoPathState!!,
             context = context,
             onDismiss = { showFullReceiptDialog = false }
+        )
+    }
+
+    // Voice Listening Overlay
+    if (isListening) {
+        AlertDialog(
+            onDismissRequest = { isListening = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Mic, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Listening...", color = WhiteText, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Try saying:", color = GreyText, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("\"spent 500 on food\"", color = TealPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("\"received 5000 salary\"", color = MintIncome, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CircularProgressIndicator(color = TealPrimary, strokeWidth = 3.dp, modifier = Modifier.size(36.dp))
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { isListening = false }) { Text("Cancel", color = GreyText) }
+            },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(16.dp)
         )
     }
 }

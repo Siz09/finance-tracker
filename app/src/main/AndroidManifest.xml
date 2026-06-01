@@ -10,6 +10,9 @@
     <!-- Camera (required for full-resolution photo capture) -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Microphone (required for Voice-to-Transaction) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- Gallery access for older Android -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

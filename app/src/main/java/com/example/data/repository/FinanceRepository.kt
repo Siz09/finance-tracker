@@ -4,6 +4,7 @@ import com.example.data.dao.FinanceDao
 import com.example.data.model.Account
 import com.example.data.model.AppSetting
 import com.example.data.model.Budget
+import com.example.data.model.NetWorthItem
 import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
 import kotlinx.coroutines.flow.Flow
@@ -118,5 +119,16 @@ class FinanceRepository(private val financeDao: FinanceDao) {
 
     suspend fun deleteAccountById(id: Int) {
         financeDao.deleteAccountById(id)
+    }
+
+    // Net Worth
+    val allNetWorthItems: Flow<List<NetWorthItem>> = financeDao.getAllNetWorthItems()
+
+    suspend fun insertNetWorthItem(item: NetWorthItem) {
+        financeDao.insertNetWorthItem(item)
+    }
+
+    suspend fun deleteNetWorthItemById(id: Int) {
+        financeDao.deleteNetWorthItemById(id)
     }
 }

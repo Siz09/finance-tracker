@@ -775,6 +775,65 @@ fun DashboardScreen(
                 }
             }
 
+            // ── Smart Spending Insights ────────────────────────────────────────────────────────
+            item {
+                val insights = remember(transactions, budgets, totalIncome, totalExpense) {
+                    val list = mutableListOf<SmartInsight>()
+
+                    // 1. Budget warning per category
+                    budgets.forEach { b ->
+                        val spent = transactions.filter { it.type == "expense" && it.category.equals(b.category, true) }.sumOf { it.amount }
+                        val limit = b.monthlyLimit
+                        if (limit > 0) {
+                            val ratio = spent / limit
+                            if (ratio >= 1.0) list.add(SmartInsight("Budget Exceeded", "${b.category} spending exceeded your Rs.${limit.toInt()} limit (Rs.${spent.toInt()} spent).", "danger"))
+                            else if (ratio >= 0.8) list.add(SmartInsight("Budget Warning", "${b.category} is at ${(ratio * 100).toInt()}% of your Rs.${limit.toInt()} limit.", "warning"))
+                        }
+                    }
+
+                    // 2. High burn rate
+                    if (totalIncome > 0 && totalExpense > totalIncome * 0.85) {
+                        list.add(SmartInsight("High Burn Rate", "You've spent ${(totalExpense / totalIncome * 100).toInt()}% of your income this month. Consider reviewing non-essentials.", "danger"))
+                    }
+
+                    // 3. Positive savings recognition
+                    if (totalIncome > 0 && totalExpense < totalIncome * 0.4) {
+                        list.add(SmartInsight("Super Saver", "You've saved over 60% of your income this month! Excellent financial discipline.", "success"))
+                    }
+
+                    // 4. Concentrated category spike (> 50% of total expense)
+                    if (totalExpense > 0) {
+                        transactions.filter { it.type == "expense" }.groupBy { it.category }.forEach { (cat, txs) ->
+                            val sum = txs.sumOf { it.amount }
+                            if (sum > totalExpense * 0.5 && sum > 1000) {
+                                list.add(SmartInsight("Spending Spike", "$cat accounts for ${(sum / totalExpense * 100).toInt()}% of this month\'s expenses.", "info"))
+                            }
+                        }
+                    }
+
+                    // 5. No data fallback
+                    if (list.isEmpty()) {
+                        list.add(SmartInsight("On Track", "No spending anomalies detected. Keep logging to generate deeper insights.", "success"))
+                        list.add(SmartInsight("Set Budgets", "Go to Settings › Budgets to set category limits and receive automatic alerts.", "info"))
+                    }
+                    list
+                }
+
+                Text(
+                    text = "Smart Insights",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = WhiteText,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                ) {
+                    items(insights) { insight -> SmartInsightCard(insight) }
+                }
+            }
+
             // Recent transactions
             item {
                 Row(
@@ -1273,6 +1332,55 @@ fun RadialHealthGauge(
                 text = statusText,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                 color = color
+            )
+        }
+    }
+}
+
+data class SmartInsight(
+    val title: String,
+    val description: String,
+    val type: String // "danger", "warning", "success", "info"
+)
+
+@Composable
+fun SmartInsightCard(insight: SmartInsight) {
+    val (bgColor, iconColor, icon) = when (insight.type) {
+        "danger" -> Triple(RubyExpense.copy(alpha = 0.1f), RubyExpense, Icons.Default.Warning)
+        "warning" -> Triple(Color(0xFFFB8500).copy(alpha = 0.15f), Color(0xFFFB8500), Icons.Default.Info)
+        "success" -> Triple(MintIncome.copy(alpha = 0.1f), MintIncome, Icons.Default.CheckCircle)
+        else -> Triple(TealPrimary.copy(alpha = 0.1f), TealPrimary, Icons.Default.Lightbulb)
+    }
+
+    Card(
+        modifier = Modifier.width(260.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(28.dp).background(bgColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(16.dp))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = insight.title,
+                    fontWeight = FontWeight.Bold,
+                    color = WhiteText,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = insight.description,
+                color = GreyText,
+                fontSize = 12.sp,
+                lineHeight = 16.sp
             )
         }
     }

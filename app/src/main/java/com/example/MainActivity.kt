@@ -296,7 +296,8 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
                     onNavigateToNotifications = { navController.navigate("settings_notifications") },
                     onNavigateToBackup = { navController.navigate("settings_backup") },
                     onNavigateToAccounts = { navController.navigate("settings_accounts") },
-                    onNavigateToReports = { navController.navigate("reports") }
+                    onNavigateToReports = { navController.navigate("reports") },
+                    onNavigateToNetWorth = { navController.navigate("net_worth") }
                 )
             }
             composable(
@@ -392,6 +393,12 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
             }
             composable("reports") {
                 ReportsScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+            composable("net_worth") {
+                NetWorthScreen(
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() }
                 )

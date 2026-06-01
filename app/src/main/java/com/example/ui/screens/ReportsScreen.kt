@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,11 +16,19 @@ import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CompareArrows
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -120,6 +129,25 @@ fun ReportsScreen(
         }.sortedByDescending { it.thisMonth }
     }
 
+    // 6-month historical spending trend data
+    val historicalTrendData = remember(allTransactions, selectedMonth) {
+        val sdf = SimpleDateFormat("yyyy-MM", Locale.getDefault())
+        val sdfLabel = SimpleDateFormat("MMM", Locale.getDefault())
+        val baseDate = sdf.parse(selectedMonth) ?: Date()
+        val cal = Calendar.getInstance().apply { time = baseDate }
+        // Go back 5 months so we get 6 data points including current
+        cal.add(Calendar.MONTH, -5)
+        (0 until 6).map {
+            val monthStr = sdf.format(cal.time)
+            val label = try { sdfLabel.format(cal.time) } catch (e: Exception) { monthStr }
+            val total = allTransactions
+                .filter { tx -> tx.date.startsWith(monthStr) && tx.type == "expense" }
+                .sumOf { it.amount }
+            cal.add(Calendar.MONTH, 1)
+            Pair(label, total)
+        }
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize().background(DarkBg),
         topBar = {
@@ -184,6 +212,41 @@ fun ReportsScreen(
                             color = GreyText
                         )
                     }
+                }
+            }
+
+            // ── 6-Month Spending Trend Line Chart ──
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ShowChart,
+                            contentDescription = null,
+                            tint = TealPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "6-MONTH SPENDING TREND",
+                            fontSize = 11.sp,
+                            color = GreyText,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    MonthlyTrendLineChart(
+                        data = historicalTrendData,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .padding(horizontal = 8.dp)
+                    )
                 }
             }
 
@@ -461,6 +524,123 @@ fun ReportsScreen(
                             HorizontalDivider(color = DarkSurfaceElevated.copy(alpha = 0.5f))
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MonthlyTrendLineChart(
+    data: List<Pair<String, Double>>,
+    modifier: Modifier = Modifier
+) {
+    if (data.isEmpty()) return
+
+    val maxAmount = remember(data) {
+        val max = data.maxOf { it.second }
+        if (max <= 0.0) 1000.0 else max * 1.15
+    }
+
+    var animTriggered by remember { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (animTriggered) 1f else 0f,
+        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+        label = "trend_line_anim"
+    )
+    LaunchedEffect(data) {
+        animTriggered = false
+        kotlinx.coroutines.delay(80)
+        animTriggered = true
+    }
+
+    Box(modifier = modifier) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val spacingX = if (data.size > 1) w / (data.size - 1).toFloat() else w
+            val padBottom = 24.dp.toPx()
+            val padTop = 16.dp.toPx()
+            val chartH = h - padBottom - padTop
+
+            val points = data.mapIndexed { idx, pair ->
+                val x = idx * spacingX
+                val y = h - padBottom - ((pair.second / maxAmount) * chartH * progress).toFloat()
+                Offset(x, y)
+            }
+
+            // Horizontal grid lines
+            for (i in 0..3) {
+                val gy = padTop + chartH * i / 3f
+                drawLine(
+                    color = Color.White.copy(alpha = 0.05f),
+                    start = Offset(0f, gy), end = Offset(w, gy),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+
+            // Build smooth cubic bezier path
+            val linePath = Path()
+            val fillPath = Path()
+            if (points.isNotEmpty()) {
+                linePath.moveTo(points[0].x, points[0].y)
+                fillPath.moveTo(points[0].x, h - padBottom)
+                fillPath.lineTo(points[0].x, points[0].y)
+                for (i in 0 until points.size - 1) {
+                    val cx = points[i].x + (points[i + 1].x - points[i].x) / 2f
+                    linePath.cubicTo(cx, points[i].y, cx, points[i + 1].y, points[i + 1].x, points[i + 1].y)
+                    fillPath.cubicTo(cx, points[i].y, cx, points[i + 1].y, points[i + 1].x, points[i + 1].y)
+                }
+                fillPath.lineTo(points.last().x, h - padBottom)
+                fillPath.close()
+            }
+
+            // Gradient fill
+            drawPath(
+                path = fillPath,
+                brush = Brush.verticalGradient(
+                    colors = listOf(TealPrimary.copy(alpha = 0.20f), Color.Transparent),
+                    startY = padTop, endY = h - padBottom
+                )
+            )
+            // Line stroke
+            drawPath(
+                path = linePath,
+                color = TealPrimary,
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            // Dots and labels
+            points.forEachIndexed { idx, pt ->
+                drawCircle(color = TealPrimary.copy(alpha = 0.25f), radius = 7.dp.toPx(), center = pt)
+                drawCircle(color = TealPrimary, radius = 3.5.dp.toPx(), center = pt)
+
+                val amountStr = if (data[idx].second >= 1000)
+                    String.format("%.1fk", data[idx].second / 1000) else
+                    String.format("%.0f", data[idx].second)
+
+                if (progress >= 0.95f) {
+                    drawIntoCanvas { canvas ->
+                        canvas.nativeCanvas.drawText(
+                            amountStr, pt.x, pt.y - 12.dp.toPx(),
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.WHITE
+                                textSize = 9.sp.toPx()
+                                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                                textAlign = android.graphics.Paint.Align.CENTER
+                            }
+                        )
+                    }
+                }
+                drawIntoCanvas { canvas ->
+                    canvas.nativeCanvas.drawText(
+                        data[idx].first, pt.x, h - 4.dp.toPx(),
+                        android.graphics.Paint().apply {
+                            color = android.graphics.Color.parseColor("#88FFFFFF")
+                            textSize = 10.sp.toPx()
+                            textAlign = android.graphics.Paint.Align.CENTER
+                        }
+                    )
                 }
             }
         }

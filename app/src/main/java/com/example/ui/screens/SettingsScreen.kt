@@ -31,7 +31,8 @@ fun SettingsScreen(
     onNavigateToNotifications: () -> Unit,
     onNavigateToBackup: () -> Unit,
     onNavigateToAccounts: () -> Unit,
-    onNavigateToReports: () -> Unit
+    onNavigateToReports: () -> Unit,
+    onNavigateToNetWorth: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -70,6 +71,15 @@ fun SettingsScreen(
             iconTint = TealPrimary,
             tag = "tile_settings_reports",
             onClick = onNavigateToReports
+        )
+
+        SettingsMenuItem(
+            title = "Net Worth Tracker",
+            subtitle = "Track assets and liabilities to calculate your net worth",
+            icon = Icons.Default.AccountBalance,
+            iconTint = Color(0xFF8338EC),
+            tag = "tile_settings_net_worth",
+            onClick = onNavigateToNetWorth
         )
 
         // New Feature 2: Manage Accounts / Wallets

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.Account
 import com.example.data.model.Budget
+import com.example.data.model.NetWorthItem
 import com.example.data.model.SavingsGoal
 import com.example.data.model.Transaction
 import com.example.data.repository.FinanceRepository
@@ -401,6 +402,30 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                 _events.emit(FinanceEvent.Error("Import failed: ${e.message ?: "Unknown error"}"))
             }
         }
+    }
+
+    // ── Net Worth Tracker ──────────────────────────────────────────────────────
+    val allNetWorthItems: StateFlow<List<NetWorthItem>> = repository.allNetWorthItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalAssets: StateFlow<Double> = allNetWorthItems.map { items ->
+        items.filter { it.type == "asset" }.sumOf { it.value }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val totalLiabilities: StateFlow<Double> = allNetWorthItems.map { items ->
+        items.filter { it.type == "liability" }.sumOf { it.value }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val netWorth: StateFlow<Double> = combine(totalAssets, totalLiabilities) { assets, liabilities ->
+        assets - liabilities
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    fun addNetWorthItem(item: NetWorthItem) {
+        viewModelScope.launch { repository.insertNetWorthItem(item) }
+    }
+
+    fun deleteNetWorthItem(id: Int) {
+        viewModelScope.launch { repository.deleteNetWorthItemById(id) }
     }
 
     // Factory Class pattern
