@@ -355,7 +355,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
             try {
                 val tx = repository.getTransactionById(id)
                 if (tx != null) {
-                    repository.deleteTransaction(tx)
+                    repository.deleteTransaction(id)
                     FinanceWidgetProvider.updateAllWidgets(context)
                     _events.emit(FinanceEvent.Success("Transaction deleted."))
                 }
