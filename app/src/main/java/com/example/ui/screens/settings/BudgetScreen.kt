@@ -43,6 +43,9 @@ fun BudgetScreen(
     var showEditBudgetDialog by remember { mutableStateOf(false) }
     var selectedCategoryForEdit by remember { mutableStateOf<String?>(null) }
     var inputLimitVal by remember { mutableStateOf("") }
+    var inputRolloverEnabled by remember { mutableStateOf(false) }
+
+    val isEnvelopeMode by viewModel.isEnvelopeMode.collectAsState()
 
 
 
@@ -103,7 +106,7 @@ fun BudgetScreen(
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 item {
-                    val totalAllocated = budgets.sumOf { it.monthlyLimit }
+                    val totalAllocated = budgets.sumOf { it.monthlyLimit + it.rolloverAmount }
                     val unallocated = (totalIncome - totalAllocated).coerceAtLeast(0.0)
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -132,6 +135,25 @@ fun BudgetScreen(
                                 color = if (totalAllocated > totalIncome) RubyExpense else TealPrimary,
                                 trackColor = DarkSurfaceElevated,
                             )
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Divider(color = DarkSurfaceElevated)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Strict Envelope Mode", color = WhiteText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                    Text("Blocks spending when category budget is empty", color = GreyText, fontSize = 12.sp)
+                                }
+                                Switch(
+                                    checked = isEnvelopeMode,
+                                    onCheckedChange = { viewModel.setEnvelopeMode(it) },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = TealPrimary, checkedTrackColor = TealPrimary.copy(alpha = 0.5f))
+                                )
+                            }
                         }
                     }
                 }
@@ -139,7 +161,7 @@ fun BudgetScreen(
                 items(Category.EXPENSES, key = { it.name }) { cat ->
                     val limitBudget = budgets.firstOrNull { it.category.equals(cat.name, true) }
                     val spent = categorySpentMap[cat.name] ?: 0.0
-                    val limitVal = limitBudget?.monthlyLimit ?: 0.0
+                    val limitVal = (limitBudget?.monthlyLimit ?: 0.0) + (limitBudget?.rolloverAmount ?: 0.0)
 
                     Card(
                         modifier = Modifier
@@ -153,6 +175,7 @@ fun BudgetScreen(
                             .clickable {
                                 selectedCategoryForEdit = cat.name
                                 inputLimitVal = if (limitVal > 0.0) limitVal.toString() else ""
+                                inputRolloverEnabled = limitBudget?.rolloverEnabled ?: false
                                 showEditBudgetDialog = true
                             }
                             .testTag("budget_row_${cat.name}"),
@@ -168,7 +191,15 @@ fun BudgetScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(text = cat.icon, fontSize = 22.sp)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(text = cat.name, fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 15.sp)
+                                    Column {
+                                        Text(text = cat.name, fontWeight = FontWeight.Bold, color = WhiteText, fontSize = 15.sp)
+                                        if (limitBudget?.rolloverEnabled == true) {
+                                            Text("Rollover Enabled", color = MintIncome, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                        if ((limitBudget?.rolloverAmount ?: 0.0) > 0.0) {
+                                            Text("+${CurrencyFormatter.format(limitBudget!!.rolloverAmount)} from last month", color = TealPrimary, fontSize = 11.sp)
+                                        }
+                                    }
                                 }
 
                                 if (limitVal > 0.0) {
@@ -306,6 +337,22 @@ fun BudgetScreen(
                         shape = RoundedCornerShape(8.dp),
                         singleLine = true
                     )
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Budget Rollover", color = WhiteText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text("Carry over unspent amount to next month", color = GreyText, fontSize = 12.sp)
+                        }
+                        Switch(
+                            checked = inputRolloverEnabled,
+                            onCheckedChange = { inputRolloverEnabled = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = TealPrimary, checkedTrackColor = TealPrimary.copy(alpha = 0.5f))
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -313,7 +360,7 @@ fun BudgetScreen(
                     onClick = {
                         val inputLimit = inputLimitVal.toDoubleOrNull()
                         if (inputLimit != null && inputLimit >= 0) {
-                            viewModel.saveBudget(editingCategory, inputLimit)
+                            viewModel.saveBudget(editingCategory, inputLimit, inputRolloverEnabled)
                         }
                         showEditBudgetDialog = false
                         selectedCategoryForEdit = null

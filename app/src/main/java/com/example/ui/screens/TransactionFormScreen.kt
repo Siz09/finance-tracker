@@ -92,6 +92,11 @@ fun TransactionFormScreen(
 
     val accounts by viewModel.accounts.collectAsState()
     val isSpendingLocked by viewModel.isSpendingLocked.collectAsState()
+    val allTemplates by viewModel.allTransactionTemplates.collectAsState()
+
+    val isEnvelopeMode by viewModel.isEnvelopeMode.collectAsState()
+    val budgets by viewModel.budgets.collectAsState()
+    val currentMonthTransactions by viewModel.currentMonthTransactions.collectAsState()
 
     LaunchedEffect(transactionId) {
         if (transactionId != null && transactionId > 0) {
@@ -141,9 +146,18 @@ fun TransactionFormScreen(
     // Expandable metadata state (Fix #22)
     var showMetadataFields by remember { mutableStateOf(false) }
 
-    val isFormValid = remember(amount, category) {
-        val amtVal = amount.toDoubleOrNull()
-        amtVal != null && amtVal > 0 && category.isNotEmpty()
+    var isSplitMode by remember { mutableStateOf(false) }
+    var splits by remember { mutableStateOf(listOf(Pair("", initialCategory))) }
+    var expandedSplitIndex by remember { mutableStateOf<Int?>(null) }
+
+    val isFormValid = remember(amount, category, isSplitMode, splits) {
+        val total = amount.toDoubleOrNull() ?: 0.0
+        if (isSplitMode) {
+            val splitsTotal = splits.sumOf { it.first.toDoubleOrNull() ?: 0.0 }
+            total > 0 && Math.abs(splitsTotal - total) < 0.01 && splits.all { it.first.toDoubleOrNull() != null && it.second.isNotEmpty() }
+        } else {
+            total > 0 && category.isNotEmpty()
+        }
     }
 
     // Inline amount validation state — only show error once user has typed something
@@ -293,6 +307,11 @@ fun TransactionFormScreen(
         if (!hasPerm) { micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO); return }
 
         isListening = true
+        val isOfflineGuaranteed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        if (!isOfflineGuaranteed) {
+            Toast.makeText(context, "Note: Voice recognition may require internet.", Toast.LENGTH_LONG).show()
+        }
+        
         val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -361,6 +380,55 @@ fun TransactionFormScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Transaction Templates
+            if (allTemplates.isNotEmpty()) {
+                var isTemplateDropdownExpanded by remember { mutableStateOf(false) }
+                Text(text = "Use a Template (Optional)", style = MaterialTheme.typography.labelLarge, color = GreyText)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(DarkSurfaceElevated, RoundedCornerShape(12.dp))
+                            .clickable { isTemplateDropdownExpanded = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.Bookmark, contentDescription = null, tint = TealPrimary)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(text = "Select template...", color = WhiteText, fontWeight = FontWeight.SemiBold)
+                        }
+                        Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null, tint = WhiteText)
+                    }
+                    DropdownMenu(
+                        expanded = isTemplateDropdownExpanded,
+                        onDismissRequest = { isTemplateDropdownExpanded = false },
+                        modifier = Modifier.background(DarkSurfaceElevated).fillMaxWidth(0.9f)
+                    ) {
+                        allTemplates.forEach { tpl ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(text = tpl.name, color = WhiteText, fontWeight = FontWeight.Bold)
+                                        Text(text = "${tpl.type.capitalize()} • Rs.${tpl.amount} • ${tpl.category}", color = GreyText, fontSize = 12.sp)
+                                    }
+                                },
+                                onClick = {
+                                    amount = tpl.amount.toString()
+                                    type = tpl.type
+                                    category = tpl.category
+                                    if (!tpl.note.isNullOrBlank()) note = tpl.note
+                                    isTemplateDropdownExpanded = false
+                                    Toast.makeText(context, "Template applied!", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             // Amount
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(text = "Amount", style = MaterialTheme.typography.labelLarge, color = GreyText)
@@ -431,39 +499,144 @@ fun TransactionFormScreen(
             }
 
             // Category
-            Text(text = "Category", style = MaterialTheme.typography.labelLarge, color = GreyText)
-            Box(modifier = Modifier.fillMaxWidth()) {
-                val currentCategories = if (type == "expense") Category.EXPENSES else Category.INCOMES
-                Row(
-                    modifier = Modifier.fillMaxWidth().background(DarkSurface, RoundedCornerShape(12.dp))
-                        .clickable { isCategoryDropdownExpanded = true }
-                        .padding(horizontal = 16.dp, vertical = 14.dp).testTag("dropdown_select_category"),
-                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
-                ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Category", style = MaterialTheme.typography.labelLarge, color = GreyText)
+                if (!isEditingMode) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = Category.getIcon(category, type), fontSize = 20.sp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(text = category, color = WhiteText, fontWeight = FontWeight.SemiBold)
-                    }
-                    Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null, tint = WhiteText)
-                }
-                DropdownMenu(
-                    expanded = isCategoryDropdownExpanded,
-                    onDismissRequest = { isCategoryDropdownExpanded = false },
-                    modifier = Modifier.background(DarkSurfaceElevated).fillMaxWidth(0.9f)
-                ) {
-                    currentCategories.forEach { cat ->
-                        DropdownMenuItem(
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(text = cat.icon, fontSize = 20.sp)
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(text = cat.name, color = WhiteText)
-                                }
-                            },
-                            onClick = { category = cat.name; isCategoryDropdownExpanded = false },
-                            modifier = Modifier.testTag("category_item_${cat.name}")
+                        Text(text = "Split", fontSize = 12.sp, color = GreyText)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Switch(
+                            checked = isSplitMode,
+                            onCheckedChange = { isSplitMode = it },
+                            modifier = Modifier.height(24.dp)
                         )
+                    }
+                }
+            }
+
+            val currentCategories = if (type == "expense") Category.EXPENSES else Category.INCOMES
+
+            if (!isSplitMode) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().background(DarkSurface, RoundedCornerShape(12.dp))
+                            .clickable { isCategoryDropdownExpanded = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp).testTag("dropdown_select_category"),
+                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = Category.getIcon(category, type), fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(text = category, color = WhiteText, fontWeight = FontWeight.SemiBold)
+                        }
+                        Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null, tint = WhiteText)
+                    }
+                    DropdownMenu(
+                        expanded = isCategoryDropdownExpanded,
+                        onDismissRequest = { isCategoryDropdownExpanded = false },
+                        modifier = Modifier.background(DarkSurfaceElevated).fillMaxWidth(0.9f)
+                    ) {
+                        currentCategories.forEach { cat ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = cat.icon, fontSize = 20.sp)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(text = cat.name, color = WhiteText)
+                                    }
+                                },
+                                onClick = { category = cat.name; isCategoryDropdownExpanded = false },
+                                modifier = Modifier.testTag("category_item_${cat.name}")
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Split UI
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    splits.forEachIndexed { index, split ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = split.first,
+                                onValueChange = { newAmt ->
+                                    val newSplits = splits.toMutableList()
+                                    newSplits[index] = split.copy(first = newAmt)
+                                    splits = newSplits
+                                },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("Amount", color = GreyText, fontSize = 12.sp) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
+                                    focusedTextColor = WhiteText, unfocusedTextColor = WhiteText,
+                                    focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface
+                                ),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+                            
+                            Box(modifier = Modifier.weight(1.5f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().background(DarkSurface, RoundedCornerShape(8.dp))
+                                        .clickable { expandedSplitIndex = index }
+                                        .padding(horizontal = 12.dp, vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = Category.getIcon(split.second, type), fontSize = 16.sp)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(text = split.second, color = WhiteText, fontSize = 14.sp)
+                                    }
+                                    Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null, tint = WhiteText, modifier = Modifier.size(16.dp))
+                                }
+                                DropdownMenu(
+                                    expanded = expandedSplitIndex == index,
+                                    onDismissRequest = { expandedSplitIndex = null },
+                                    modifier = Modifier.background(DarkSurfaceElevated)
+                                ) {
+                                    currentCategories.forEach { cat ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(text = cat.icon, fontSize = 16.sp)
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(text = cat.name, color = WhiteText, fontSize = 14.sp)
+                                                }
+                                            },
+                                            onClick = {
+                                                val newSplits = splits.toMutableList()
+                                                newSplits[index] = split.copy(second = cat.name)
+                                                splits = newSplits
+                                                expandedSplitIndex = null
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            if (splits.size > 1) {
+                                IconButton(
+                                    onClick = {
+                                        val newSplits = splits.toMutableList()
+                                        newSplits.removeAt(index)
+                                        splits = newSplits
+                                    }
+                                ) {
+                                    Icon(imageVector = Icons.Default.Close, contentDescription = "Remove", tint = RubyExpense)
+                                }
+                            }
+                        }
+                    }
+                    TextButton(
+                        onClick = { splits = splits + Pair("", currentCategories.first().name) },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = TealPrimary)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Add Split", color = TealPrimary)
                     }
                 }
             }
@@ -885,6 +1058,36 @@ fun TransactionFormScreen(
                     val cleanNote = note.ifBlank { null }
                     // Normalize date format
                     val normalizedDate = date.replace("/", "-")
+
+                    // Envelope Budget Check
+                    if (type == "expense" && isEnvelopeMode && !isEditingMode) {
+                        if (isSplitMode) {
+                            for (split in splits) {
+                                val splitAmt = split.first.toDoubleOrNull() ?: 0.0
+                                val cat = split.second
+                                val catBudget = budgets.find { it.category == cat }
+                                if (catBudget != null && splitAmt > 0) {
+                                    val limitVal = catBudget.monthlyLimit + catBudget.rolloverAmount
+                                    val spent = currentMonthTransactions.filter { it.type == "expense" && it.category == cat }.sumOf { it.amount }
+                                    if (spent + splitAmt > limitVal) {
+                                        Toast.makeText(context, "Envelope Mode: Budget exceeded for $cat!", Toast.LENGTH_LONG).show()
+                                        return@Button
+                                    }
+                                }
+                            }
+                        } else {
+                            val catBudget = budgets.find { it.category == category }
+                            if (catBudget != null) {
+                                val limitVal = catBudget.monthlyLimit + catBudget.rolloverAmount
+                                val spent = currentMonthTransactions.filter { it.type == "expense" && it.category == category }.sumOf { it.amount }
+                                if (spent + amtVal > limitVal) {
+                                    Toast.makeText(context, "Envelope Mode: Budget exceeded for $category!", Toast.LENGTH_LONG).show()
+                                    return@Button
+                                }
+                            }
+                        }
+                    }
+
                     if (isEditingMode && transactionId != null) {
                         viewModel.updateTransaction(
                             context = context,
@@ -901,20 +1104,42 @@ fun TransactionFormScreen(
                             mood = initialMood
                         )
                     } else {
-                        viewModel.addTransaction(
-                            context = context,
-                            type = type, amount = amtVal, category = category,
-                            date = normalizedDate, note = cleanNote,
-                            imagePath = photoPathState, receiverName = receiverName,
-                            receiverId = receiverId, remarks = remarks,
-                            paymentMethod = paymentMethod, transactionCode = transactionCode,
-                            processedBy = processedBy, purpose = purpose,
-                            initiatorName = initiatorName,
-                            isRecurring = isRecurringState,
-                            recurrenceFrequency = if (isRecurringState) recurrenceFrequencyState else null,
-                            accountId = accountIdState,
-                            mood = initialMood
-                        )
+                        if (isSplitMode) {
+                            splits.forEach { split ->
+                                val splitAmt = split.first.toDoubleOrNull() ?: 0.0
+                                if (splitAmt > 0) {
+                                    viewModel.addTransaction(
+                                        context = context,
+                                        type = type, amount = splitAmt, category = split.second,
+                                        date = normalizedDate, note = cleanNote,
+                                        imagePath = photoPathState, receiverName = receiverName,
+                                        receiverId = receiverId, remarks = remarks,
+                                        paymentMethod = paymentMethod, transactionCode = transactionCode,
+                                        processedBy = processedBy, purpose = purpose,
+                                        initiatorName = initiatorName,
+                                        isRecurring = isRecurringState,
+                                        recurrenceFrequency = if (isRecurringState) recurrenceFrequencyState else null,
+                                        accountId = accountIdState,
+                                        mood = initialMood
+                                    )
+                                }
+                            }
+                        } else {
+                            viewModel.addTransaction(
+                                context = context,
+                                type = type, amount = amtVal, category = category,
+                                date = normalizedDate, note = cleanNote,
+                                imagePath = photoPathState, receiverName = receiverName,
+                                receiverId = receiverId, remarks = remarks,
+                                paymentMethod = paymentMethod, transactionCode = transactionCode,
+                                processedBy = processedBy, purpose = purpose,
+                                initiatorName = initiatorName,
+                                isRecurring = isRecurringState,
+                                recurrenceFrequency = if (isRecurringState) recurrenceFrequencyState else null,
+                                accountId = accountIdState,
+                                mood = initialMood
+                            )
+                        }
                     }
                     onDismiss()
                 },

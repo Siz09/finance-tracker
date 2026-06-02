@@ -89,11 +89,23 @@ class MainActivity : FragmentActivity() {
                 wic.isAppearanceLightNavigationBars = !isDark
             }
 
+            val hasCompletedOnboarding by viewModel.hasCompletedOnboarding.collectAsState()
+
             MyApplicationTheme(darkTheme = isDark) {
-                val startDest = remember {
-                    if (intent?.action == "com.example.ACTION_ADD_TRANSACTION") "add_transaction" else "dashboard"
+                if (hasCompletedOnboarding != null) {
+                    val startDest = remember(hasCompletedOnboarding) {
+                        if (intent?.action == "com.example.ACTION_ADD_TRANSACTION") {
+                            "add_transaction"
+                        } else if (hasCompletedOnboarding == false) {
+                            "onboarding"
+                        } else {
+                            "dashboard"
+                        }
+                    }
+                    MainAppContainer(viewModel = viewModel, startDestination = startDest)
+                } else {
+                    Box(modifier = Modifier.fillMaxSize().background(com.example.ui.theme.DarkBg))
                 }
-                MainAppContainer(viewModel = viewModel, startDestination = startDest)
             }
         }
     }
@@ -228,6 +240,16 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
                 fadeOut(animationSpec = tween(240, easing = fluidEaseIn))
             }
         ) {
+            composable("onboarding") {
+                OnboardingScreen(
+                    onComplete = {
+                        viewModel.completeOnboarding()
+                        navController.navigate("dashboard") {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
+                    }
+                )
+            }
             composable(
                 route = "dashboard",
                 enterTransition = {
@@ -499,7 +521,8 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
                     onNavigateToAccounts = { navController.navigate("settings_accounts") },
                     onNavigateToReports = { navController.navigate("reports") },
                     onNavigateToNetWorth = { navController.navigate("net_worth") },
-                    onNavigateToCalendar = { navController.navigate("settings_calendar") }
+                    onNavigateToCalendar = { navController.navigate("settings_calendar") },
+                    onNavigateToBills = { navController.navigate("bills") }
                 )
             }
             composable(
@@ -669,7 +692,32 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
                 CalendarScreen(
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() },
-                    onEditTransaction = { id -> navController.navigate("edit_transaction/$id") }
+                    onEditTransaction = { id -> navController.navigate("edit_transaction/$id") },
+                    onNavigateToJournal = { navController.navigate("journal") }
+                )
+            }
+            composable(
+                route = "bills",
+                enterTransition = detailsEnter,
+                exitTransition = detailsExit,
+                popEnterTransition = detailsPopEnter,
+                popExitTransition = detailsPopExit
+            ) {
+                BillsScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "journal",
+                enterTransition = detailsEnter,
+                exitTransition = detailsExit,
+                popEnterTransition = detailsPopEnter,
+                popExitTransition = detailsPopExit
+            ) {
+                JournalScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() }
                 )
             }
         }

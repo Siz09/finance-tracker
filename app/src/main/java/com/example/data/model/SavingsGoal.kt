@@ -10,5 +10,6 @@ data class SavingsGoal(
     val target: Double,
     val savedAmount: Double = 0.0,
     val deadline: Long? = null,
-    val month: String = "" // Legacy field, kept for schema compatibility
+    val month: String = "", // Legacy field, kept for schema compatibility
+    val autoCreditEnabled: Boolean = false
 )

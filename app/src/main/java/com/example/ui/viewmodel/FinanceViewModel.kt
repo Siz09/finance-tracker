@@ -68,8 +68,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         return Pair("$fyStartYear-07-16", "${fyStartYear + 1}-07-15")
     }
 
-    fun getNepalFiscalYearLabel(): String {
-        val cal = Calendar.getInstance()
+    fun getNepalFiscalYearLabel(cal: Calendar = Calendar.getInstance()): String {
         val year = cal.get(Calendar.YEAR)
         val month = cal.get(Calendar.MONTH) + 1
         val day = cal.get(Calendar.DAY_OF_MONTH)
@@ -145,6 +144,15 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     val themeMode: StateFlow<String> = repository.getSettingFlow("theme_mode")
         .map { it?.value ?: "system" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
+        
+    // Onboarding
+    val hasCompletedOnboarding: StateFlow<Boolean?> = repository.getSettingFlow("has_completed_onboarding")
+        .map { it?.value == "true" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun completeOnboarding() {
+        viewModelScope.launch { repository.updateSetting("has_completed_onboarding", "true") }
+    }
 
     // Spending Lock (Phase 4)
     val isSpendingLocked: StateFlow<Boolean> = repository.getSettingFlow("spending_lock")
@@ -153,6 +161,15 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
 
     fun setSpendingLock(locked: Boolean) {
         viewModelScope.launch { repository.updateSetting("spending_lock", locked.toString()) }
+    }
+
+    // Envelope Budgeting Mode
+    val isEnvelopeMode: StateFlow<Boolean> = repository.getSettingFlow("envelope_mode")
+        .map { it?.value == "true" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setEnvelopeMode(enabled: Boolean) {
+        viewModelScope.launch { repository.updateSetting("envelope_mode", enabled.toString()) }
     }
 
     // Transaction Templates
@@ -242,6 +259,18 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                 if (parsedMonth != null && parsedMonth.matches(Regex("""^\d{4}-\d{2}$"""))) {
                     selectedMonth.value = parsedMonth
                 }
+                
+                // Pay-yourself-first mode: auto-credit enabled savings goals when income is logged
+                if (type == "income") {
+                    val goals = allSavingsGoals.value.filter { it.autoCreditEnabled && it.savedAmount < it.target }
+                    if (goals.isNotEmpty()) {
+                        val creditPerGoal = (amount * 0.10) / goals.size // Credits 10% of income equally
+                        goals.forEach { goal ->
+                            repository.insertSavingsGoal(goal.copy(savedAmount = goal.savedAmount + creditPerGoal))
+                        }
+                    }
+                }
+
                 _events.emit(FinanceEvent.Success("Transaction added successfully"))
                 // Refresh home screen widget
                 FinanceWidgetProvider.updateAllWidgets(context)
@@ -324,10 +353,12 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     fun deleteTransaction(context: Context, id: Int) {
         viewModelScope.launch {
             try {
-                repository.deleteTransaction(id)
-                _events.emit(FinanceEvent.Success("Transaction deleted successfully"))
-                // Refresh home screen widget
-                FinanceWidgetProvider.updateAllWidgets(context)
+                val tx = repository.getTransactionById(id)
+                if (tx != null) {
+                    repository.deleteTransaction(tx)
+                    FinanceWidgetProvider.updateAllWidgets(context)
+                    _events.emit(FinanceEvent.Success("Transaction deleted."))
+                }
             } catch (e: Exception) {
                 _events.emit(FinanceEvent.Error("Failed to delete transaction: ${e.message ?: "Unknown error"}"))
             }
@@ -352,15 +383,15 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     }
 
     // Budget Operations
-    fun saveBudget(category: String, limit: Double) {
+    fun saveBudget(category: String, limit: Double, rolloverEnabled: Boolean = false) {
         viewModelScope.launch {
             try {
                 val currentMonth = selectedMonth.value
                 val existing = repository.getBudgetByCategoryAndMonth(category, currentMonth)
                 val newBudget = if (existing != null) {
-                    existing.copy(monthlyLimit = limit)
+                    existing.copy(monthlyLimit = limit, rolloverEnabled = rolloverEnabled)
                 } else {
-                    Budget(category = category, monthlyLimit = limit, month = currentMonth)
+                    Budget(category = category, monthlyLimit = limit, month = currentMonth, rolloverEnabled = rolloverEnabled)
                 }
                 repository.insertBudget(newBudget)
             } catch (e: Exception) {
@@ -540,6 +571,34 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
 
     fun deleteDebtItem(id: Int) {
         viewModelScope.launch { repository.deleteDebtItemById(id) }
+    }
+
+    // ── Bills & Subscriptions Tracker ──────────────────────────────────────────
+    val allBills: StateFlow<List<com.example.data.model.Bill>> = repository.allBills
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addBill(bill: com.example.data.model.Bill) {
+        viewModelScope.launch { repository.insertBill(bill) }
+    }
+
+    fun updateBill(bill: com.example.data.model.Bill) {
+        viewModelScope.launch { repository.insertBill(bill) } // REPLACE on conflict
+    }
+
+    fun deleteBill(id: Int) {
+        viewModelScope.launch { repository.deleteBillById(id) }
+    }
+
+    // ── Financial Journal ──────────────────────────────────────────────────────
+    val allJournalEntries: StateFlow<List<com.example.data.model.JournalEntry>> = repository.allJournalEntries
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addJournalEntry(entry: com.example.data.model.JournalEntry) {
+        viewModelScope.launch { repository.insertJournalEntry(entry) }
+    }
+
+    fun deleteJournalEntry(id: Int) {
+        viewModelScope.launch { repository.deleteJournalEntryById(id) }
     }
 
     // Factory Class pattern

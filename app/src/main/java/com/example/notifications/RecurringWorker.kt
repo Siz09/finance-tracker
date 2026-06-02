@@ -66,6 +66,40 @@ class RecurringWorker(
                     dao.updateTransaction(updatedParent)
                 }
             }
+            // Budget Rollover Logic
+            val calToday = Calendar.getInstance()
+            // Check if it's the 1st of the month, but only run once per day (Worker frequency ensures this)
+            if (calToday.get(Calendar.DAY_OF_MONTH) == 1) {
+                val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(calToday.time)
+                val lastMonthCal = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
+                val lastMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(lastMonthCal.time)
+                
+                val lastMonthBudgets = dao.getBudgetsForMonthSuspend(lastMonthStr)
+                if (lastMonthBudgets.isNotEmpty()) {
+                    val allTxs = dao.getAllTransactionsSuspend()
+                    for (b in lastMonthBudgets) {
+                        if (b.rolloverEnabled) {
+                            val spent = allTxs.filter { it.date.startsWith(lastMonthStr) && it.category == b.category && it.type == "expense" }.sumOf { it.amount }
+                            val underspend = (b.monthlyLimit - spent).coerceAtLeast(0.0)
+                            if (underspend > 0) {
+                                val existingThisMonth = dao.getBudgetByCategoryAndMonth(b.category, currentMonthStr)
+                                if (existingThisMonth == null) {
+                                    dao.insertBudget(
+                                        com.example.data.model.Budget(
+                                            category = b.category,
+                                            monthlyLimit = b.monthlyLimit,
+                                            month = currentMonthStr,
+                                            rolloverAmount = underspend,
+                                            rolloverEnabled = true
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             return Result.success()
         } catch (e: Exception) {
             e.printStackTrace()

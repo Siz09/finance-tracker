@@ -29,5 +29,9 @@ data class Transaction(
     val createdAt: Long = System.currentTimeMillis(),
     
     // Phase 4 fields
-    @ColumnInfo(name = "mood") val mood: String? = null // e.g. "Necessary", "Happy", "Regret", "Impulse"
+    @ColumnInfo(name = "mood") val mood: String? = null, // e.g. "Necessary", "Happy", "Regret", "Impulse"
+    
+    // Phase 6 fields
+    @ColumnInfo(name = "time") val time: String? = null,
+    @ColumnInfo(name = "parentTransactionId") val parentTransactionId: Int? = null
 )

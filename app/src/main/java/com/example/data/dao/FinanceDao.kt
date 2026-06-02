@@ -17,6 +17,9 @@ interface FinanceDao {
     @Query("SELECT * FROM transactions ORDER BY date DESC, createdAt DESC")
     fun getAllTransactions(): Flow<List<Transaction>>
 
+    @Query("SELECT * FROM transactions")
+    suspend fun getAllTransactionsSuspend(): List<Transaction>
+
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: Int): Transaction?
 
@@ -135,4 +138,24 @@ interface FinanceDao {
 
     @Query("DELETE FROM transaction_templates WHERE id = :id")
     suspend fun deleteTransactionTemplateById(id: Int)
+
+    // --- Bills ---
+    @Query("SELECT * FROM bills ORDER BY dueDate ASC")
+    fun getAllBills(): Flow<List<com.example.data.model.Bill>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBill(bill: com.example.data.model.Bill)
+
+    @Query("DELETE FROM bills WHERE id = :id")
+    suspend fun deleteBillById(id: Int)
+
+    // --- Journal Entries ---
+    @Query("SELECT * FROM journal_entries ORDER BY date DESC, id DESC")
+    fun getAllJournalEntries(): Flow<List<com.example.data.model.JournalEntry>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertJournalEntry(entry: com.example.data.model.JournalEntry)
+
+    @Query("DELETE FROM journal_entries WHERE id = :id")
+    suspend fun deleteJournalEntryById(id: Int)
 }

@@ -164,4 +164,26 @@ class FinanceRepository(private val financeDao: FinanceDao) {
     suspend fun deleteTransactionTemplateById(id: Int) {
         financeDao.deleteTransactionTemplateById(id)
     }
+
+    // ── Bills ────────────────────────────────────────────────────────────────
+    val allBills: Flow<List<com.example.data.model.Bill>> = financeDao.getAllBills()
+
+    suspend fun insertBill(bill: com.example.data.model.Bill) {
+        financeDao.insertBill(bill)
+    }
+
+    suspend fun deleteBillById(id: Int) {
+        financeDao.deleteBillById(id)
+    }
+
+    // ── Journal Entries ──────────────────────────────────────────────────────
+    val allJournalEntries: Flow<List<com.example.data.model.JournalEntry>> = financeDao.getAllJournalEntries()
+
+    suspend fun insertJournalEntry(entry: com.example.data.model.JournalEntry) {
+        financeDao.insertJournalEntry(entry)
+    }
+
+    suspend fun deleteJournalEntryById(id: Int) {
+        financeDao.deleteJournalEntryById(id)
+    }
 }

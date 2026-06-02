@@ -38,9 +38,18 @@ fun DebtScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedDebtForPayment by remember { mutableStateOf<DebtItem?>(null) }
     var showDeleteConfirmDialog by remember { mutableStateOf<DebtItem?>(null) }
+    var sortStrategy by remember { mutableStateOf("Avalanche") }
 
     val totalDebt = allDebts.sumOf { it.totalAmount }
     val totalPaid = allDebts.sumOf { it.paidAmount }
+
+    val sortedDebts = remember(allDebts, sortStrategy) {
+        when (sortStrategy) {
+            "Avalanche" -> allDebts.sortedByDescending { it.interestRate }
+            "Snowball" -> allDebts.sortedBy { it.totalAmount - it.paidAmount }
+            else -> allDebts
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().background(DarkBg),
@@ -105,12 +114,39 @@ fun DebtScreen(
                         }
                     }
                 }
+                item {
+                    // Sorting Strategy
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        FilterChip(
+                            selected = sortStrategy == "Avalanche",
+                            onClick = { sortStrategy = "Avalanche" },
+                            label = { Text("Avalanche (High APR First)") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = RubyExpense.copy(alpha = 0.2f),
+                                selectedLabelColor = RubyExpense
+                            )
+                        )
+                        FilterChip(
+                            selected = sortStrategy == "Snowball",
+                            onClick = { sortStrategy = "Snowball" },
+                            label = { Text("Snowball (Lowest Balance First)") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MintIncome.copy(alpha = 0.2f),
+                                selectedLabelColor = MintIncome
+                            )
+                        )
+                    }
+                }
                 
-                items(allDebts, key = { it.id }) { debt ->
+                items(sortedDebts, key = { it.id }) { debt ->
                     DebtCard(
                         debt = debt,
                         onAddPayment = { selectedDebtForPayment = debt },
-                        onDelete = { showDeleteConfirmDialog = debt }
+                        onDelete = { showDeleteConfirmDialog = debt },
+                        strategy = sortStrategy
                     )
                 }
             }
@@ -161,7 +197,7 @@ fun DebtScreen(
 }
 
 @Composable
-fun DebtCard(debt: DebtItem, onAddPayment: () -> Unit, onDelete: () -> Unit) {
+fun DebtCard(debt: DebtItem, onAddPayment: () -> Unit, onDelete: () -> Unit, strategy: String = "Avalanche") {
     val progressRatio = (debt.paidAmount / debt.totalAmount).coerceIn(0.0, 1.0)
     val animatedProgress by animateFloatAsState(targetValue = progressRatio.toFloat(), animationSpec = tween(800), label = "debt_progress")
     val isPaidOff = progressRatio >= 1.0

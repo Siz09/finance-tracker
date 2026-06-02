@@ -340,6 +340,55 @@ fun ReportsScreen(
                 }
             }
 
+            // Time of Day Spending Pattern
+            val timeGroups = expenseTransactions.filter { it.time != null }.groupBy { it.time!! }
+            if (timeGroups.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(text = "TIME OF DAY SPENDING PATTERN", fontSize = 11.sp, color = GreyText, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        val totalTimedExpenses = timeGroups.values.sumOf { it.sumOf { tx -> tx.amount } }
+                        val timeOrder = listOf("Morning", "Afternoon", "Evening", "Night")
+
+                        timeOrder.forEach { timeStr ->
+                            val txs = timeGroups[timeStr] ?: emptyList()
+                            if (txs.isNotEmpty()) {
+                                val amount = txs.sumOf { it.amount }
+                                val pct = if (totalTimedExpenses > 0) amount / totalTimedExpenses else 0.0
+                                val icon = when (timeStr) {
+                                    "Morning" -> "🌅"
+                                    "Afternoon" -> "☀️"
+                                    "Evening" -> "🌇"
+                                    "Night" -> "🌙"
+                                    else -> "🕒"
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = icon, fontSize = 20.sp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = timeStr, color = WhiteText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(text = String.format("Rs. %.2f", amount), color = WhiteText, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(text = String.format("%.1f%%", pct * 100), color = GreyText, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Spending Mood Analysis
             val totalTransactionsWithMood = expenseTransactions.count { it.mood != null }
             if (totalTransactionsWithMood > 0) {
@@ -398,7 +447,7 @@ fun ReportsScreen(
 
                         val needsPct = (needsSpent / totalIncome) * 100
                         val wantsPct = (wantsSpent / totalIncome) * 100
-                        val savingsPct = ((totalIncome - expenseTransactions.sumOf { it.amount } + savingsSpent) / totalIncome) * 100 // Approximation
+                        val savingsPct = ((totalIncome - expenseTransactions.sumOf { it.amount } + savingsSpent) / totalIncome) * 100
 
                         val targetNeeds = 50.0
                         val targetWants = 30.0
@@ -622,6 +671,135 @@ fun ReportsScreen(
                                 }
                             }
                             HorizontalDivider(color = DarkSurfaceElevated.copy(alpha = 0.5f))
+                        }
+                    }
+                }
+            }
+            
+            // ── Spending Streaks & Habits ─────────────────────────────────────
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(text = "SPENDING STREAKS & HABITS", fontSize = 11.sp, color = GreyText, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Compute no spend days
+                    val sdf = SimpleDateFormat("yyyy-MM", Locale.getDefault())
+                    val date = try { sdf.parse(selectedMonth) } catch(e: Exception) { Date() }
+                    val cal = Calendar.getInstance().apply { time = date }
+                    val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+                    val expensesByDay = expenseTransactions.groupBy { tx ->
+                        try {
+                            val txDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(tx.date)
+                            val txCal = Calendar.getInstance()
+                            if (txDate != null) txCal.time = txDate
+                            txCal.get(Calendar.DAY_OF_MONTH)
+                        } catch(e: Exception) { 1 }
+                    }
+
+                    var noSpendCount = 0
+                    var currentStreak = 0
+                    var longestStreak = 0
+
+                    val todayCal = Calendar.getInstance()
+                    val isCurrentMonth = todayCal.get(Calendar.YEAR) == cal.get(Calendar.YEAR) && todayCal.get(Calendar.MONTH) == cal.get(Calendar.MONTH)
+                    val daysToEvaluate = if (isCurrentMonth) todayCal.get(Calendar.DAY_OF_MONTH) else daysInMonth
+
+                    for (i in 1..daysToEvaluate) {
+                        if (expensesByDay[i] == null || expensesByDay[i]!!.isEmpty()) {
+                            noSpendCount++
+                            currentStreak++
+                            if (currentStreak > longestStreak) longestStreak = currentStreak
+                        } else {
+                            currentStreak = 0
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Text(text = "No Spend Days", color = GreyText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = "$noSpendCount", color = MintIncome, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Text(text = "Current Streak", color = GreyText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = "$currentStreak days", color = TealPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Text(text = "Longest Streak", color = GreyText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = "$longestStreak days", color = WhiteText, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(text = "Daily Contributions", color = GreyText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Heatmap grid (GitHub contributions style)
+                    // We render rows of 7 days
+                    val columns = (daysInMonth + 6) / 7
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        for (col in 0 until columns) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                for (row in 0 until 7) {
+                                    val dayNum = col * 7 + row + 1
+                                    if (dayNum <= daysInMonth) {
+                                        val dayExpenses = expensesByDay[dayNum]
+                                        val color = when {
+                                            dayNum > daysToEvaluate -> DarkBg // future
+                                            dayExpenses == null || dayExpenses.isEmpty() -> MintIncome
+                                            else -> {
+                                                val amt = dayExpenses.sumOf { it.amount }
+                                                if (amt > dailyAverage * 1.5) RubyExpense // high spend
+                                                else Color(0xFFF4A261) // average/low spend
+                                            }
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .clip(RoundedCornerShape(2.dp))
+                                                .background(color)
+                                        )
+                                    } else {
+                                        // Empty cell for layout alignment
+                                        Box(modifier = Modifier.size(12.dp).background(Color.Transparent))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(MintIncome))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("No Spend", fontSize = 10.sp, color = GreyText)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFF4A261)))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Spent", fontSize = 10.sp, color = GreyText)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(RubyExpense))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("High Spend", fontSize = 10.sp, color = GreyText)
                         }
                     }
                 }

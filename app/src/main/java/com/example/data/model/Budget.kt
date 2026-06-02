@@ -8,5 +8,7 @@ data class Budget(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val category: String,
     val monthlyLimit: Double,
-    val month: String // format: "YYYY-MM"
+    val month: String, // format: "YYYY-MM"
+    val rolloverAmount: Double = 0.0,
+    val rolloverEnabled: Boolean = false
 )

@@ -37,7 +37,8 @@ import java.util.*
 fun CalendarScreen(
     viewModel: FinanceViewModel,
     onBackClick: () -> Unit,
-    onEditTransaction: (Int) -> Unit
+    onEditTransaction: (Int) -> Unit,
+    onNavigateToJournal: () -> Unit
 ) {
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
@@ -114,6 +115,11 @@ fun CalendarScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteText)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToJournal) {
+                        Icon(Icons.Default.Book, contentDescription = "Journal", tint = TealPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)

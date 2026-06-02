@@ -34,7 +34,8 @@ fun SettingsScreen(
     onNavigateToAccounts: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToNetWorth: () -> Unit,
-    onNavigateToCalendar: () -> Unit
+    onNavigateToCalendar: () -> Unit,
+    onNavigateToBills: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -128,6 +129,15 @@ fun SettingsScreen(
             iconTint = RubyExpense,
             tag = "tile_settings_debt",
             onClick = onNavigateToDebt
+        )
+
+        SettingsMenuItem(
+            title = "Bills & Subscriptions",
+            subtitle = "Manage recurring bills and track their due dates",
+            icon = Icons.Default.EventNote,
+            iconTint = MintIncome,
+            tag = "tile_settings_bills",
+            onClick = onNavigateToBills
         )
 
         SettingsMenuItem(

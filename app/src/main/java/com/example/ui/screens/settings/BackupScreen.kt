@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,6 +55,20 @@ fun BackupScreen(
     var pendingImportJson by remember { mutableStateOf<String?>(null) }
     var pendingImportFileName by remember { mutableStateOf("") }
     var isImporting by remember { mutableStateOf(false) }
+    
+    // Tax Year Selection
+    var selectedTaxYear by remember { mutableStateOf<String?>(null) }
+    var showTaxYearDropdown by remember { mutableStateOf(false) }
+    
+    val availableYears = remember(transactions) {
+        transactions.map { it.date.take(4) }.distinct().sortedDescending()
+    }
+    
+    LaunchedEffect(availableYears) {
+        if (selectedTaxYear == null && availableYears.isNotEmpty()) {
+            selectedTaxYear = availableYears.first()
+        }
+    }
 
     // JSON file picker launcher
     val importLauncher = rememberLauncherForActivityResult(
@@ -252,6 +268,100 @@ fun BackupScreen(
                         Icon(imageVector = Icons.Default.DataObject, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(text = "Export Complete Data as JSON", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // ── Tax Year Summary Export ──────────────────────────────────────
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(text = "TAX YEAR SUMMARY EXPORT", fontSize = 11.sp, color = GreyText, fontWeight = FontWeight.Bold)
+                    
+                    Text(
+                        text = "Export a custom date-range summary for tax filing or personal archival.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GreyText,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "Select Year:", color = WhiteText, fontWeight = FontWeight.Medium)
+                        
+                        Box {
+                            Row(
+                                modifier = Modifier
+                                    .background(DarkSurfaceElevated, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                                    .clickable { showTaxYearDropdown = true },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = selectedTaxYear ?: "No data",
+                                    color = TealPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null, tint = TealPrimary)
+                            }
+                            
+                            DropdownMenu(
+                                expanded = showTaxYearDropdown,
+                                onDismissRequest = { showTaxYearDropdown = false },
+                                modifier = Modifier.background(DarkSurfaceElevated)
+                            ) {
+                                availableYears.forEach { year ->
+                                    DropdownMenuItem(
+                                        text = { Text(year, color = WhiteText) },
+                                        onClick = {
+                                            selectedTaxYear = year
+                                            showTaxYearDropdown = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            if (selectedTaxYear == null) {
+                                Toast.makeText(context, "No year selected", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            val filteredTxs = transactions.filter { it.date.startsWith(selectedTaxYear!!) }
+                            if (filteredTxs.isEmpty()) {
+                                Toast.makeText(context, "No transactions found for $selectedTaxYear", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            val uri = ExportHelper.exportToCSV(context, filteredTxs)
+                            if (uri != null) {
+                                ExportHelper.shareFile(context, uri, "text/csv")
+                            } else {
+                                Toast.makeText(context, "Export generation failed", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("btn_export_tax_year"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF673AB7), contentColor = WhiteText),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.DateRange, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Export $selectedTaxYear Summary (CSV)", fontWeight = FontWeight.Bold)
                     }
                 }
             }

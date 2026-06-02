@@ -13,6 +13,7 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.util.Calendar
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -110,5 +111,36 @@ class FinanceViewModelTest {
         viewModel.setThemeMode("light")
         val finalTheme = viewModel.themeMode.first()
         assertEquals("light", finalTheme)
+    }
+
+    @Test
+    fun `nepal fiscal year - edge cases for label offset`() {
+        // Test July 15, 2026 -> FY 2025 (BS 2082/83)
+        val cal1 = Calendar.getInstance().apply {
+            set(2026, Calendar.JULY, 15) // Note: Calendar.JULY is 6 (0-indexed)
+        }
+        val label1 = viewModel.getNepalFiscalYearLabel(cal1)
+        assertEquals("FY 2082/83 BS", label1)
+
+        // Test July 16, 2026 -> FY 2026 (BS 2083/84)
+        val cal2 = Calendar.getInstance().apply {
+            set(2026, Calendar.JULY, 16)
+        }
+        val label2 = viewModel.getNepalFiscalYearLabel(cal2)
+        assertEquals("FY 2083/84 BS", label2)
+        
+        // Test January 1, 2027 -> FY 2026 (BS 2083/84)
+        val cal3 = Calendar.getInstance().apply {
+            set(2027, Calendar.JANUARY, 1) // Note: Calendar.JANUARY is 0
+        }
+        val label3 = viewModel.getNepalFiscalYearLabel(cal3)
+        assertEquals("FY 2083/84 BS", label3)
+        
+        // Test August 1, 2026 -> FY 2026 (BS 2083/84)
+        val cal4 = Calendar.getInstance().apply {
+            set(2026, Calendar.AUGUST, 1)
+        }
+        val label4 = viewModel.getNepalFiscalYearLabel(cal4)
+        assertEquals("FY 2083/84 BS", label4)
     }
 }

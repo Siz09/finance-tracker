@@ -94,8 +94,8 @@ fun SavingsGoalScreen(
     if (showAddDialog) {
         AddSavingsGoalDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, target, deadline ->
-                viewModel.addSavingsGoal(SavingsGoal(name = name, target = target, deadline = deadline))
+            onConfirm = { name, target, deadline, autoCredit ->
+                viewModel.addSavingsGoal(SavingsGoal(name = name, target = target, deadline = deadline, autoCreditEnabled = autoCredit))
                 showAddDialog = false
             }
         )
@@ -160,6 +160,9 @@ fun SavingsGoalCard(goal: SavingsGoal, onAddProgress: () -> Unit, onDelete: () -
                         } else {
                             Text(text = "No deadline", color = GreyText, fontSize = 12.sp)
                         }
+                        if (goal.autoCreditEnabled) {
+                            Text(text = "Pay-yourself-first Active (10% of income)", color = MintIncome, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
@@ -201,12 +204,13 @@ fun SavingsGoalCard(goal: SavingsGoal, onAddProgress: () -> Unit, onDelete: () -
 @Composable
 private fun AddSavingsGoalDialog(
     onDismiss: () -> Unit,
-    onConfirm: (name: String, target: Double, deadline: Long?) -> Unit
+    onConfirm: (name: String, target: Double, deadline: Long?, autoCredit: Boolean) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var targetStr by remember { mutableStateOf("") }
     var datePickerState = rememberDatePickerState()
     var showDatePicker by remember { mutableStateOf(false) }
+    var autoCreditEnabled by remember { mutableStateOf(false) }
 
     val isValid = name.isNotBlank() && targetStr.toDoubleOrNull()?.let { it > 0 } == true
 
@@ -248,11 +252,27 @@ private fun AddSavingsGoalDialog(
                     val dateStr = datePickerState.selectedDateMillis?.let { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(it)) } ?: "Set Deadline (Optional)"
                     Text(dateStr)
                 }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Pay Yourself First", color = WhiteText, fontWeight = FontWeight.SemiBold)
+                        Text("Auto-credit 10% of new income to this goal", color = GreyText, fontSize = 12.sp)
+                    }
+                    Switch(
+                        checked = autoCreditEnabled,
+                        onCheckedChange = { autoCreditEnabled = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = TealPrimary, checkedTrackColor = TealPrimary.copy(alpha = 0.5f))
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(name.trim(), targetStr.toDouble(), datePickerState.selectedDateMillis) },
+                onClick = { onConfirm(name.trim(), targetStr.toDouble(), datePickerState.selectedDateMillis, autoCreditEnabled) },
                 enabled = isValid,
                 colors = ButtonDefaults.buttonColors(containerColor = TealPrimary, contentColor = DarkBg)
             ) { Text("Create", fontWeight = FontWeight.Bold) }
