@@ -8,6 +8,8 @@ import com.example.data.repository.FinanceRepository
 import com.example.ui.viewmodel.FinanceViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.*
@@ -33,17 +35,55 @@ class FinanceViewModelTest {
         db = Room.inMemoryDatabaseBuilder(context, FinanceDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = FinanceRepository(db.financeDao())
-        viewModel = FinanceViewModel(repository)
+        FinanceDatabase.setTestInstance(db)
+        viewModel = FinanceViewModel(context as android.app.Application)
     }
 
     @After
     fun tearDown() {
+        try {
+            val superClass = viewModel.javaClass.superclass
+            val vmClass = superClass.superclass
+            val method = vmClass.getDeclaredMethod("onCleared")
+            method.isAccessible = true
+            method.invoke(viewModel)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         db.close()
+        FinanceDatabase.setTestInstance(null)
+    }
+    private suspend fun waitTransactions(expectedSize: Int) {
+        val start = System.currentTimeMillis()
+        while (viewModel.allTransactions.value.size != expectedSize && System.currentTimeMillis() - start < 3000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            kotlinx.coroutines.delay(50)
+        }
+    }
+
+    private suspend fun waitThemeMode(expected: String) {
+        val start = System.currentTimeMillis()
+        while (viewModel.themeMode.value != expected && System.currentTimeMillis() - start < 3000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            kotlinx.coroutines.delay(50)
+        }
     }
 
     @Test
     fun `addTransaction - income transaction updates netBalance and totalIncome`() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.allTransactions.collect {}
+        }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.totalIncome.collect {}
+        }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.totalExpense.collect {}
+        }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.netBalance.collect {}
+        }
+
         val context = ApplicationProvider.getApplicationContext<Context>()
         
         viewModel.addTransaction(
@@ -56,24 +96,40 @@ class FinanceViewModelTest {
             imagePath = null
         )
 
-        // Give flows a brief moment to process
-        val txs = viewModel.allTransactions.first()
+        waitTransactions(1)
+
+        val txs = viewModel.allTransactions.value
         assertEquals(1, txs.size)
         assertEquals("income", txs[0].type)
         assertEquals(5000.0, txs[0].amount, 0.001)
 
         // Check dashboard summary states
-        val income = viewModel.totalIncome.first()
-        val expense = viewModel.totalExpense.first()
-        val net = viewModel.netBalance.first()
+        val income = viewModel.totalIncome.value
+        val expense = viewModel.totalExpense.value
+        val net = viewModel.netBalance.value
 
         assertEquals(5000.0, income, 0.001)
         assertEquals(0.0, expense, 0.001)
         assertEquals(5000.0, net, 0.001)
+
+        org.robolectric.shadows.ShadowLooper.getShadowMainLooper().runToEndOfTasks()
     }
 
     @Test
     fun `addTransaction - expense transaction updates netBalance and totalExpense`() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.allTransactions.collect {}
+        }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.totalIncome.collect {}
+        }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.totalExpense.collect {}
+        }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.netBalance.collect {}
+        }
+
         val context = ApplicationProvider.getApplicationContext<Context>()
 
         viewModel.addTransaction(
@@ -86,31 +142,44 @@ class FinanceViewModelTest {
             imagePath = null
         )
 
-        val txs = viewModel.allTransactions.first()
+        waitTransactions(1)
+
+        val txs = viewModel.allTransactions.value
         assertEquals(1, txs.size)
         assertEquals("expense", txs[0].type)
 
-        val income = viewModel.totalIncome.first()
-        val expense = viewModel.totalExpense.first()
-        val net = viewModel.netBalance.first()
+        val income = viewModel.totalIncome.value
+        val expense = viewModel.totalExpense.value
+        val net = viewModel.netBalance.value
 
         assertEquals(0.0, income, 0.001)
         assertEquals(1200.0, expense, 0.001)
         assertEquals(-1200.0, net, 0.001)
+
+        org.robolectric.shadows.ShadowLooper.getShadowMainLooper().runToEndOfTasks()
     }
 
     @Test
     fun `settings - themeMode flow updates reactively on setThemeMode call`() = runTest {
-        val initialTheme = viewModel.themeMode.first()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.themeMode.collect {}
+        }
+
+        waitThemeMode("system")
+        val initialTheme = viewModel.themeMode.value
         assertEquals("system", initialTheme)
 
         viewModel.setThemeMode("dark")
-        val updatedTheme = viewModel.themeMode.first()
+        waitThemeMode("dark")
+        val updatedTheme = viewModel.themeMode.value
         assertEquals("dark", updatedTheme)
 
         viewModel.setThemeMode("light")
-        val finalTheme = viewModel.themeMode.first()
+        waitThemeMode("light")
+        val finalTheme = viewModel.themeMode.value
         assertEquals("light", finalTheme)
+
+        org.robolectric.shadows.ShadowLooper.getShadowMainLooper().runToEndOfTasks()
     }
 
     @Test

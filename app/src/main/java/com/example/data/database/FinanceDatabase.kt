@@ -170,5 +170,9 @@ abstract class FinanceDatabase : RoomDatabase() {
                 instance
             }
         }
+
+        fun setTestInstance(database: FinanceDatabase?) {
+            INSTANCE = database
+        }
     }
 }

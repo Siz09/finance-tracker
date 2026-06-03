@@ -375,7 +375,7 @@ fun DashboardScreen(
                                                 onClick = {
                                                     yearMenuExpanded = false
                                                     val monthStr = String.format("%02d", currentMonthIndex + 1)
-                                                    viewModel.selectedMonth.value = "$yr-$monthStr"
+                                                    viewModel.setSelectedMonth("$yr-$monthStr")
                                                 }
                                             )
                                         }
@@ -450,7 +450,7 @@ fun DashboardScreen(
                                                 )
                                                 .clickable {
                                                     val monthStr = String.format("%02d", idx + 1)
-                                                    viewModel.selectedMonth.value = "$currentYear-$monthStr"
+                                                    viewModel.setSelectedMonth("$currentYear-$monthStr")
                                                     isExpanded = false // Collapse card on selection
                                                 }
                                                 .padding(horizontal = 16.dp, vertical = 10.dp),

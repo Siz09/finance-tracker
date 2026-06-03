@@ -222,4 +222,39 @@ class ReceiptParserTest {
         val result = ReceiptParser.parse("Random unrecognised text\nAmount Rs. 50\n2026-05-01")
         assertEquals("Other", result.suggestedCategory)
     }
+
+    @Test
+    fun `parse Fonepay payment receipt - amount with columns and request id extracted correctly`() {
+        val ocrText = """
+            Fonepay Payment
+            2026-06-03 05:19 PM
+            Complete
+            Amount (NPR): Transaction Code:
+            273.42 1J38S7B
+            Processed By:
+            9844296224
+            Merchant Code: Transaction Currency:
+            2222400020599080 NPR
+            Initiator: Description:
+            9844296224 9844296224
+            Merchant Name: Unique Request Id:
+            NEW RABINA COSMETIC PASAL 72793349881126686b
+            3792-0072-489a-90ba
+            -416e1beb4237
+            Purpose Of Payment: Payment Method:
+            Lifestyle & Entertainment eSewa Wallet
+            Request Unique Id:
+            416066384214
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(ocrText)
+
+        assertEquals(273.42, result.amount!!, 0.001)
+        assertEquals("2026-06-03", result.date)
+        assertEquals("NEW RABINA COSMETIC PASAL", result.merchant)
+        assertEquals("eSewa Wallet", result.paymentMethod)
+        assertEquals("1J38S7B", result.transactionCode)
+        assertEquals("9844296224", result.processedBy)
+        assertEquals("Lifestyle & Entertainment", result.purpose)
+    }
 }

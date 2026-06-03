@@ -2,6 +2,12 @@ package com.example
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import coil.Coil
+import coil.ImageLoader
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
@@ -56,14 +62,12 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         WindowCompat.setDecorFitsSystemWindows(window, true)
 
         setContent {
             val context = LocalContext.current
-            val app = context.applicationContext as FinanceApplication
             val viewModel: FinanceViewModel = viewModel(
-                factory = FinanceViewModel.Factory(app.repository)
+                factory = FinanceViewModel.Factory(application)
             )
 
             val themeMode by viewModel.themeMode.collectAsState()
@@ -159,7 +163,7 @@ fun MainAppContainer(viewModel: FinanceViewModel, startDestination: String) {
     LaunchedEffect(Unit) {
         try {
             val todayStr = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault()).format(java.util.Date())
-            viewModel.selectedMonth.value = todayStr
+            viewModel.setSelectedMonth(todayStr)
         } catch (e: Exception) {
             e.printStackTrace()
         }

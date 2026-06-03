@@ -70,13 +70,24 @@ object ReceiptParser {
             """(?:TOTAL|AMOUNT|NET|DUE|PAID|RS\.?|NPR|NRS)\s*[:=]?\s*([\d,]+(?:[.,]\d{1,2})?)""",
             RegexOption.IGNORE_CASE
         )
-        keywordRegex.find(text)?.groupValues?.get(1)?.let { raw ->
-            parseNumber(raw)?.let { if (isValidAmount(it)) return it }
+        val keywordMatches = keywordRegex.findAll(text).toList()
+        if (keywordMatches.isNotEmpty()) {
+            // Prioritize matches that explicitly mention "total"
+            val totalMatch = keywordMatches.firstOrNull { it.value.contains("total", ignoreCase = true) }
+            if (totalMatch != null) {
+                parseNumber(totalMatch.groupValues[1])?.let { if (isValidAmount(it)) return it }
+            }
+            // Fallback: take the largest valid keyword match
+            val largestKeywordAmount = keywordMatches
+                .mapNotNull { parseNumber(it.groupValues[1]) }
+                .filter { isValidAmount(it) }
+                .maxOrNull()
+            if (largestKeywordAmount != null) return largestKeywordAmount
         }
 
         // 3. Largest standalone number in plausible range (10–999999),
-        //    ignoring phone numbers (10 digits), dates, and reference codes
-        val numberRegex = Regex("""(?<![A-Z0-9])(\d+(?:,\d{3})*(?:\.\d{1,2})?)(?![A-Z0-9])""", RegexOption.IGNORE_CASE)
+        //    ignoring phone numbers (10 digits), dates, reference codes, and UUIDs (with hyphens)
+        val numberRegex = Regex("""(?<![-A-Z0-9])(\d+(?:,\d{3})*(?:\.\d{1,2})?)(?![-A-Z0-9])""", RegexOption.IGNORE_CASE)
         return numberRegex.findAll(text)
             .mapNotNull { parseNumber(it.groupValues[1]) }
             .filter { isValidAmount(it) }
@@ -93,8 +104,11 @@ object ReceiptParser {
         return value in 10.0..999999.0
     }
 
-    private fun parseNumber(raw: String): Double? =
-        raw.replace(",", "").toDoubleOrNull()
+    private fun parseNumber(raw: String): Double? {
+        val regex = Regex("""([\d,]+(?:\.\d+)?)""")
+        val match = regex.find(raw) ?: return null
+        return match.groupValues[1].replace(",", "").toDoubleOrNull()
+    }
 
     // ── Date ──────────────────────────────────────────────────────────────────
 
@@ -144,13 +158,47 @@ object ReceiptParser {
     // Handles: "Label:\nValue" OR "Label: Value" on same line
     // Also handles multi-line values (e.g. receiver name split across 2 lines)
 
+    private fun findSplitIndex(line: String, labelLineIndex: Int, labelLineLength: Int): Int {
+        if (labelLineIndex <= 0) return 0
+        if (labelLineIndex >= labelLineLength) return line.length
+        val targetIdx = line.length * (labelLineIndex.toDouble() / labelLineLength)
+        val spaceIndices = line.indices.filter { line[it] == ' ' }
+        return spaceIndices.minByOrNull { Math.abs(it - targetIdx) } ?: line.length
+    }
+
     private fun extractAfterLabel(lines: List<String>, label: String): String? {
         val labelIdx = lines.indexOfFirst { it.contains(label, ignoreCase = true) }
         if (labelIdx < 0) return null
 
         val labelLine = lines[labelIdx]
+        val labelStart = labelLine.indexOf(label, ignoreCase = true)
 
-        // Value on same line after the colon
+        // Check if there are other labels on the same line (multi-column)
+        val colonCount = labelLine.count { it == ':' }
+        if (colonCount > 1) {
+            val colonIdx = labelLine.indexOf(':', labelStart)
+            if (colonIdx >= 0) {
+                val nextColonIdx = labelLine.indexOf(':', colonIdx + 1)
+                val nextLine = lines.getOrNull(labelIdx + 1)
+                if (nextLine != null && !isLabel(nextLine)) {
+                    val startIdx = findSplitIndex(nextLine, labelStart, labelLine.length)
+                    if (nextColonIdx >= 0) {
+                        var nextLabelStart = colonIdx + 1
+                        while (nextLabelStart < labelLine.length && labelLine[nextLabelStart].isWhitespace()) {
+                            nextLabelStart++
+                        }
+                        val endIdx = findSplitIndex(nextLine, nextLabelStart, labelLine.length)
+                        if (startIdx < endIdx) {
+                            return nextLine.substring(startIdx, endIdx).trim()
+                        }
+                    } else {
+                        return nextLine.substring(startIdx).trim()
+                    }
+                }
+            }
+        }
+
+        // Standard single-column label extraction
         val colonIdx = labelLine.indexOf(':')
         if (colonIdx >= 0) {
             val inline = labelLine.substring(colonIdx + 1).trim()
@@ -220,18 +268,59 @@ object ReceiptParser {
 
     // ── Merchant ──────────────────────────────────────────────────────────────
 
+    private fun cleanMerchantValue(raw: String): String {
+        val words = raw.split(Regex("""\s+"""))
+        val cleanWords = mutableListOf<String>()
+        for (w in words) {
+            // Stop at the first word that contains digits and is length >= 4, or starts with a digit
+            if (w.any { it.isDigit() } && (w.length >= 4 || (w.firstOrNull()?.isDigit() == true))) {
+                break
+            }
+            cleanWords.add(w)
+        }
+        return cleanWords.joinToString(" ").trim()
+    }
+
     private fun extractMerchant(lines: List<String>): String? {
+        // 1. Look for explicit label "Merchant Name" or "Merchant"
+        val labels = listOf("Merchant Name", "Merchant")
+        for (label in labels) {
+            val idx = lines.indexOfFirst { it.contains(label, ignoreCase = true) }
+            if (idx >= 0) {
+                val line = lines[idx]
+                val colonIdx = line.indexOf(':')
+                if (colonIdx >= 0) {
+                    val inline = line.substring(colonIdx + 1).trim()
+                    if (inline.isNotEmpty() && !inline.contains("Code", ignoreCase = true) && !inline.contains("Unique", ignoreCase = true)) {
+                        val cleaned = cleanMerchantValue(inline)
+                        if (cleaned.isNotEmpty()) return cleaned
+                    }
+                }
+                // Check next line
+                val nextIdx = idx + 1
+                if (nextIdx <= lines.lastIndex) {
+                    val nextLine = lines[nextIdx]
+                    if (!isLabel(nextLine)) {
+                        val cleaned = cleanMerchantValue(nextLine)
+                        if (cleaned.isNotEmpty()) return cleaned
+                    }
+                }
+            }
+        }
+
+        // 2. Fallback to existing logic: first 5 lines
         val skip = setOf(
             "send money", "receive money", "payment", "complete", "success", "failed",
             "personal use", "business", "transfer", "official use", "family", "friend"
         )
-        return lines.take(5).firstOrNull { line ->
+        val fallback = lines.take(5).firstOrNull { line ->
             line.isNotBlank() &&
             line.length > 2 &&
             !skip.any { line.lowercase().contains(it) } &&
             !line.contains(':') &&
             !line.matches(Regex("""\d+.*"""))
         }
+        return fallback?.let { cleanMerchantValue(it) }
     }
 
     private fun suggestCategory(text: String): String {

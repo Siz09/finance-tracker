@@ -19,34 +19,7 @@ data class ImportResult(
 )
 
 object ExportHelper {
-    fun exportToCSV(context: Context, transactions: List<Transaction>): Uri? {
-        try {
-            val file = File(context.cacheDir, "transactions_export_${System.currentTimeMillis()}.csv")
-            val writer = FileWriter(file)
-            writer.append("ID,Type,Amount,Category,Date,Note,ReceiverName,ReceiverId,Remarks,PaymentMethod,TransactionCode,ProcessedBy,Purpose,InitiatorName,ImagePath,CreatedAt\n")
-            for (tx in transactions) {
-                val noteEscaped       = tx.note?.replace("\"", "\"\"") ?: ""
-                val receiverNameEsc   = tx.receiverName?.replace("\"", "\"\"") ?: ""
-                val receiverIdEsc     = tx.receiverId?.replace("\"", "\"\"") ?: ""
-                val remarksEsc        = tx.remarks?.replace("\"", "\"\"") ?: ""
-                val paymentMethodEsc  = tx.paymentMethod?.replace("\"", "\"\"") ?: ""
-                val txnCodeEsc        = tx.transactionCode?.replace("\"", "\"\"") ?: ""
-                val processedByEsc    = tx.processedBy?.replace("\"", "\"\"") ?: ""
-                val purposeEsc        = tx.purpose?.replace("\"", "\"\"") ?: ""
-                val initiatorNameEsc  = tx.initiatorName?.replace("\"", "\"\"") ?: ""
-                val imagePathEsc      = tx.imagePath?.replace("\"", "\"\"") ?: ""
-                // Always format amount as 2 decimal places for interoperability
-                val amountStr = String.format("%.2f", tx.amount)
-                writer.append("${tx.id},${tx.type},$amountStr,\"${tx.category}\",${tx.date},\"$noteEscaped\",\"$receiverNameEsc\",\"$receiverIdEsc\",\"$remarksEsc\",\"$paymentMethodEsc\",\"$txnCodeEsc\",\"$processedByEsc\",\"$purposeEsc\",\"$initiatorNameEsc\",\"$imagePathEsc\",${tx.createdAt}\n")
-            }
-            writer.flush()
-            writer.close()
-            return FileProvider.getUriForFile(context, "com.example.fileprovider", file)
-        } catch (e: Exception) {
-            Log.e("ExportHelper", "exportToCSV failed", e)
-            return null
-        }
-    }
+
 
     fun exportToJSON(
         context: Context,
@@ -375,7 +348,7 @@ object ExportHelper {
     }
 
     private fun extractDouble(obj: String, key: String): Double? {
-        val regex = Regex(""""$key"\s*:\s*([\d.]+)""")
+        val regex = Regex(""""$key"\s*:\s*(-?[\d.]+)""")
         return regex.find(obj)?.groupValues?.get(1)?.toDoubleOrNull()
     }
 

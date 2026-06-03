@@ -1,10 +1,12 @@
 package com.example.ui.viewmodel
 
+import android.app.Application
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.database.FinanceDatabase
 import com.example.data.model.Account
 import com.example.data.model.Budget
 import com.example.data.model.DebtItem
@@ -30,7 +32,11 @@ sealed class FinanceEvent {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() {
+class FinanceViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val repository: FinanceRepository = FinanceRepository(
+        FinanceDatabase.getDatabase(application).financeDao()
+    )
 
     private val _events = MutableSharedFlow<FinanceEvent>()
     val events = _events.asSharedFlow()
@@ -179,6 +185,12 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Navigation and month alteration
+    fun setSelectedMonth(month: String) {
+        if (month.matches(Regex("""^\d{4}-\d{2}$"""))) {
+            _selectedMonth.value = month
+        }
+    }
+
     fun selectPreviousMonth() {
         adjustMonth(-1)
     }
@@ -604,11 +616,11 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     }
 
     // Factory Class pattern
-    class Factory(private val repository: FinanceRepository) : ViewModelProvider.Factory {
+    class Factory(private val application: Application) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(FinanceViewModel::class.java)) {
-                return FinanceViewModel(repository) as T
+                return FinanceViewModel(application) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

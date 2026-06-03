@@ -46,13 +46,17 @@ class KharchaApp : Application() {
     }
 
     private fun scheduleRecurringWorker() {
-        val recurringRequest = PeriodicWorkRequestBuilder<RecurringWorker>(1, TimeUnit.DAYS)
-            .build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "recurring_transactions_worker",
-            ExistingPeriodicWorkPolicy.KEEP,
-            recurringRequest
-        )
+        try {
+            val recurringRequest = PeriodicWorkRequestBuilder<RecurringWorker>(1, TimeUnit.DAYS)
+                .build()
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "recurring_transactions_worker",
+                ExistingPeriodicWorkPolicy.KEEP,
+                recurringRequest
+            )
+        } catch (e: Exception) {
+            Log.e("KharchaApp", "Failed to schedule WorkManager task", e)
+        }
     }
 
     private suspend fun cleanupOrphanedImages() {
