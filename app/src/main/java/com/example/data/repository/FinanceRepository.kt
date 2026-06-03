@@ -23,6 +23,11 @@ class FinanceRepository(private val financeDao: FinanceDao) {
         return financeDao.getTransactionsByDateSync(date)
     }
 
+    // Efficient month-scoped query — avoids a full table scan during budget rollover checks.
+    suspend fun getTransactionsForMonthSuspend(monthPrefix: String): List<Transaction> {
+        return financeDao.getTransactionsForMonthSuspend(monthPrefix)
+    }
+
     suspend fun insertTransaction(transaction: Transaction) {
         financeDao.insertTransaction(transaction)
     }
@@ -150,6 +155,10 @@ class FinanceRepository(private val financeDao: FinanceDao) {
         financeDao.insertDebtItem(item)
     }
 
+    suspend fun updateDebtItem(item: DebtItem) {
+        financeDao.updateDebtItem(item)
+    }
+
     suspend fun deleteDebtItemById(id: Int) {
         financeDao.deleteDebtItemById(id)
     }
@@ -170,6 +179,10 @@ class FinanceRepository(private val financeDao: FinanceDao) {
 
     suspend fun insertBill(bill: com.example.data.model.Bill) {
         financeDao.insertBill(bill)
+    }
+
+    suspend fun updateBill(bill: com.example.data.model.Bill) {
+        financeDao.updateBill(bill)
     }
 
     suspend fun deleteBillById(id: Int) {

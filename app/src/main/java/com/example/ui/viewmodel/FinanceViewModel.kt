@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -34,10 +35,11 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     private val _events = MutableSharedFlow<FinanceEvent>()
     val events = _events.asSharedFlow()
 
-    // Selected month in "YYYY-MM" format
-    val selectedMonth = MutableStateFlow(
+    // Selected month in "YYYY-MM" format — private mutable, public read-only (fix #16)
+    private val _selectedMonth = MutableStateFlow(
         SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
     )
+    val selectedMonth: StateFlow<String> = _selectedMonth.asStateFlow()
 
     // All transactions ordered by date descending
     val allTransactions: StateFlow<List<Transaction>> = repository.allTransactions
@@ -45,7 +47,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
 
     // Transactions filtered for the currently selected month
     val currentMonthTransactions: StateFlow<List<Transaction>> = combine(
-        allTransactions, selectedMonth
+        allTransactions, _selectedMonth
     ) { txs, month ->
         txs.filter { it.date.startsWith(month) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -117,12 +119,12 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
     // Budgets for selected month
-    val budgets: StateFlow<List<Budget>> = selectedMonth.flatMapLatest { month ->
+    val budgets: StateFlow<List<Budget>> = _selectedMonth.flatMapLatest { month ->
         repository.getBudgetsForMonth(month)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Savings goal for selected month (legacy behavior)
-    val savingsGoal: StateFlow<SavingsGoal?> = selectedMonth.flatMapLatest { month ->
+    val savingsGoal: StateFlow<SavingsGoal?> = _selectedMonth.flatMapLatest { month ->
         repository.getSavingsGoalForMonth(month)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -193,9 +195,9 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                 time = date
                 add(Calendar.MONTH, amount)
             }
-            selectedMonth.value = sdf.format(cal.time)
+            _selectedMonth.value = sdf.format(cal.time)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("FinanceViewModel", "adjustMonth failed", e)
         }
     }
 
@@ -257,7 +259,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                 // Auto-switch display to the transaction's month so it shows up instantly
                 val parsedMonth = if (normalizedDate.length >= 7) normalizedDate.substring(0, 7) else null
                 if (parsedMonth != null && parsedMonth.matches(Regex("""^\d{4}-\d{2}$"""))) {
-                    selectedMonth.value = parsedMonth
+                    _selectedMonth.value = parsedMonth
                 }
                 
                 // Pay-yourself-first mode: auto-credit enabled savings goals when income is logged
@@ -339,7 +341,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
                 // Auto-switch display to the transaction's month so it shows up instantly
                 val parsedMonth = if (normalizedDate.length >= 7) normalizedDate.substring(0, 7) else null
                 if (parsedMonth != null && parsedMonth.matches(Regex("""^\d{4}-\d{2}$"""))) {
-                    selectedMonth.value = parsedMonth
+                    _selectedMonth.value = parsedMonth
                 }
                 _events.emit(FinanceEvent.Success("Transaction updated successfully"))
                 // Refresh home screen widget
@@ -386,7 +388,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     fun saveBudget(category: String, limit: Double, rolloverEnabled: Boolean = false) {
         viewModelScope.launch {
             try {
-                val currentMonth = selectedMonth.value
+                val currentMonth = _selectedMonth.value
                 val existing = repository.getBudgetByCategoryAndMonth(category, currentMonth)
                 val newBudget = if (existing != null) {
                     existing.copy(monthlyLimit = limit, rolloverEnabled = rolloverEnabled)
@@ -414,7 +416,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     fun saveSavingsGoal(target: Double) {
         viewModelScope.launch {
             try {
-                val currentMonth = selectedMonth.value
+                val currentMonth = _selectedMonth.value
                 val existing = repository.getSavingsGoalForMonthSuspend(currentMonth)
                 val newGoal = if (existing != null) {
                     existing.copy(target = target)
@@ -566,7 +568,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     }
 
     fun updateDebtItem(item: DebtItem) {
-        viewModelScope.launch { repository.insertDebtItem(item) } // REPLACE on conflict
+        viewModelScope.launch { repository.updateDebtItem(item) }
     }
 
     fun deleteDebtItem(id: Int) {
@@ -582,7 +584,7 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
     }
 
     fun updateBill(bill: com.example.data.model.Bill) {
-        viewModelScope.launch { repository.insertBill(bill) } // REPLACE on conflict
+        viewModelScope.launch { repository.updateBill(bill) }
     }
 
     fun deleteBill(id: Int) {

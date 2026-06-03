@@ -272,7 +272,8 @@ private fun AddDebtDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
-                    value = name, onValueChange = { name = it },
+                    value = name,
+                    onValueChange = { if (it.length <= 100) name = it }, // 100-char cap (#14)
                     label = { Text("Name (e.g. Car Loan)", color = GreyText) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(

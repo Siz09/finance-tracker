@@ -193,7 +193,7 @@ fun AccountsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = accountName,
-                        onValueChange = { accountName = it },
+                        onValueChange = { if (it.length <= 100) accountName = it }, // 100-char cap (#14)
                         label = { Text("Wallet / Account Name", color = GreyText) },
                         placeholder = { Text("e.g. eSewa, Global IME Bank, Cash", color = GreyText) },
                         colors = OutlinedTextFieldDefaults.colors(

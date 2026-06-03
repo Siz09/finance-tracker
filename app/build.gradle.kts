@@ -55,6 +55,12 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
+// Room schema export: writes JSON snapshots to app/schemas/ so migrations
+// can be verified against the actual column layout at each version. (#17)
+ksp {
+  arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.activity.compose)

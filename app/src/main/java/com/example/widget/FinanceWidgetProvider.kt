@@ -75,7 +75,7 @@ class FinanceWidgetProvider : AppWidgetProvider() {
 
                     appWidgetManager.updateAppWidget(appWidgetId, views)
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    android.util.Log.e("FinanceWidgetProvider", "Widget update failed", e)
                 }
             }
         }

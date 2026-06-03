@@ -76,10 +76,11 @@ class RecurringWorker(
                 
                 val lastMonthBudgets = dao.getBudgetsForMonthSuspend(lastMonthStr)
                 if (lastMonthBudgets.isNotEmpty()) {
-                    val allTxs = dao.getAllTransactionsSuspend()
+                    // Only load last month's transactions — avoids a full table scan (#12)
+                    val lastMonthTxs = dao.getTransactionsForMonthSuspend(lastMonthStr)
                     for (b in lastMonthBudgets) {
                         if (b.rolloverEnabled) {
-                            val spent = allTxs.filter { it.date.startsWith(lastMonthStr) && it.category == b.category && it.type == "expense" }.sumOf { it.amount }
+                            val spent = lastMonthTxs.filter { it.category == b.category && it.type == "expense" }.sumOf { it.amount }
                             val underspend = (b.monthlyLimit - spent).coerceAtLeast(0.0)
                             if (underspend > 0) {
                                 val existingThisMonth = dao.getBudgetByCategoryAndMonth(b.category, currentMonthStr)
@@ -102,7 +103,7 @@ class RecurringWorker(
 
             return Result.success()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("RecurringWorker", "doWork failed", e)
             return Result.failure()
         }
     }

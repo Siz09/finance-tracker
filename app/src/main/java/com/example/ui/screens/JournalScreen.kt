@@ -167,7 +167,8 @@ private fun AddJournalEntryDialog(
                 }
                 
                 OutlinedTextField(
-                    value = content, onValueChange = { content = it },
+                    value = content,
+                    onValueChange = { if (it.length <= 2000) content = it }, // 2000-char cap (#14)
                     placeholder = { Text("Write your thoughts...", color = GreyText) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = TealPrimary, unfocusedBorderColor = DarkSurfaceElevated,
@@ -175,7 +176,13 @@ private fun AddJournalEntryDialog(
                         focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface
                     ),
                     modifier = Modifier.fillMaxWidth().height(150.dp),
-                    maxLines = 8
+                    maxLines = 8,
+                    supportingText = {
+                        Text(
+                            text = "${content.length}/2000",
+                            color = if (content.length > 1800) AmberWarning else GreyText
+                        )
+                    }
                 )
             }
         },

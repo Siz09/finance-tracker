@@ -20,6 +20,10 @@ interface FinanceDao {
     @Query("SELECT * FROM transactions")
     suspend fun getAllTransactionsSuspend(): List<Transaction>
 
+    // Efficient date-range query — avoids loading all rows for budget-rollover checks.
+    @Query("SELECT * FROM transactions WHERE date LIKE :monthPrefix || '%'")
+    suspend fun getTransactionsForMonthSuspend(monthPrefix: String): List<Transaction>
+
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: Int): Transaction?
 
@@ -126,6 +130,9 @@ interface FinanceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDebtItem(item: DebtItem)
 
+    @Update
+    suspend fun updateDebtItem(item: DebtItem)
+
     @Query("DELETE FROM debt_items WHERE id = :id")
     suspend fun deleteDebtItemById(id: Int)
 
@@ -145,6 +152,9 @@ interface FinanceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBill(bill: com.example.data.model.Bill)
+
+    @Update
+    suspend fun updateBill(bill: com.example.data.model.Bill)
 
     @Query("DELETE FROM bills WHERE id = :id")
     suspend fun deleteBillById(id: Int)

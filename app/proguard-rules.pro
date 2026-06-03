@@ -5,17 +5,28 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
-
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ── Room ─────────────────────────────────────────────────────────────────────
+# Keep all entity/model classes so Room reflection and migrations work in release.
+-keep class com.example.data.model.** { *; }
+-keep class * extends androidx.room.RoomDatabase
+# Keep generated Room implementations
+-keep class * extends androidx.room.RoomDatabase_Impl { *; }
+
+# ── Coil ─────────────────────────────────────────────────────────────────────
+-dontwarn coil.**
+
+# ── ML Kit ───────────────────────────────────────────────────────────────────
+-dontwarn com.google.mlkit.**
+-keep class com.google.mlkit.** { *; }
+
+# ── Kotlin Coroutines ─────────────────────────────────────────────────────────
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}

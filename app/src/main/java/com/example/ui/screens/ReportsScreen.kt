@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.example.data.model.Category
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
@@ -447,7 +449,10 @@ fun ReportsScreen(
 
                         val needsPct = (needsSpent / totalIncome) * 100
                         val wantsPct = (wantsSpent / totalIncome) * 100
-                        val savingsPct = ((totalIncome - expenseTransactions.sumOf { it.amount } + savingsSpent) / totalIncome) * 100
+                        // Savings = whatever income wasn't spent on needs or wants.
+                        // Using totalIncome - totalExpense avoids double-counting savings-category
+                        // transactions that are already included in expenseTransactions.sumOf{}.
+                        val savingsPct = ((totalIncome - expenseTransactions.sumOf { it.amount }) / totalIncome).coerceAtLeast(0.0) * 100
 
                         val targetNeeds = 50.0
                         val targetWants = 30.0
@@ -832,7 +837,17 @@ fun MonthlyTrendLineChart(
         animTriggered = true
     }
 
-    Box(modifier = modifier) {
+    // Build a text summary of the trend data for screen readers (#19)
+    val a11yDescription = remember(data) {
+        "6-month spending trend: " +
+                data.joinToString(", ") { (month, amount) ->
+                    "$month Rs.${String.format("%.0f", amount)}"
+                }
+    }
+
+    Box(
+        modifier = modifier.semantics { contentDescription = a11yDescription }
+    ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height

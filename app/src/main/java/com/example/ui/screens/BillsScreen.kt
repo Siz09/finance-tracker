@@ -186,7 +186,8 @@ private fun AddBillDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
-                    value = name, onValueChange = { name = it },
+                    value = name,
+                    onValueChange = { if (it.length <= 100) name = it }, // 100-char cap (#14)
                     label = { Text("Bill Name (e.g. Netflix)", color = GreyText) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(

@@ -30,6 +30,8 @@ import com.example.data.model.Transaction
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
 import com.example.utils.CurrencyFormatter
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -222,6 +224,25 @@ fun CalendarScreen(
                                                 width = 1.dp,
                                                 color = if (isValidDay && dayNum == selectedDay) TealPrimary else Color.Transparent,
                                                 shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .then(
+                                                if (isValidDay) {
+                                                    // Build a meaningful description for screen readers (#19)
+                                                    val dayStr2 = String.format("%04d-%02d-%02d", year, month + 1, dayNum)
+                                                    val dayTxsA11y = monthTransactions.filter { it.date == dayStr2 }
+                                                    val netA11y = dayTxsA11y.filter { it.type == "income" }.sumOf { it.amount } -
+                                                            dayTxsA11y.filter { it.type == "expense" }.sumOf { it.amount }
+                                                    val flowLabel = when {
+                                                        netA11y > 0 -> ", income day"
+                                                        netA11y < 0 -> ", expense day"
+                                                        dayTxsA11y.isNotEmpty() -> ", balanced day"
+                                                        else -> ", no transactions"
+                                                    }
+                                                    val selectedLabel = if (dayNum == selectedDay) ", selected" else ""
+                                                    Modifier.semantics {
+                                                        contentDescription = "$monthDisplayName $dayNum$flowLabel$selectedLabel"
+                                                    }
+                                                } else Modifier
                                             )
                                             .clickable(enabled = isValidDay) {
                                                 if (isValidDay) selectedDay = dayNum

@@ -75,6 +75,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlin.math.sin
 import kotlin.math.cos
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 val CategoryColors = listOf(
     TealPrimary,
@@ -1452,7 +1454,22 @@ fun DonutChartSection(
         animTriggered = true
     }
 
-    Box(modifier = Modifier.size(190.dp).padding(8.dp), contentAlignment = Alignment.Center) {
+    // Build accessibility text summarising the breakdown for screen readers (#19)
+    val a11yText = remember(categorySums, totalExpenseSum) {
+        "Expense breakdown donut chart. " +
+        categorySums.entries.joinToString(", ") { (cat, amt) ->
+            val pct = if (totalExpenseSum > 0) (amt / totalExpenseSum * 100).toInt() else 0
+            "$cat $pct%"
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .size(190.dp)
+            .padding(8.dp)
+            .semantics { contentDescription = a11yText },
+        contentAlignment = Alignment.Center
+    ) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -1671,7 +1688,12 @@ fun RadialHealthGauge(
         else -> "Critical"
     }
     
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+    Box(
+        modifier = modifier.semantics {
+            contentDescription = "Financial health score: $score out of 100. Status: $statusText."
+        },
+        contentAlignment = Alignment.Center
+    ) {
         Canvas(modifier = Modifier.size(110.dp)) {
             val w = size.width
             val h = size.height

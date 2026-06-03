@@ -306,11 +306,29 @@ fun TransactionFormScreen(
         val hasPerm = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         if (!hasPerm) { micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO); return }
 
-        isListening = true
-        val isOfflineGuaranteed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
-        if (!isOfflineGuaranteed) {
-            Toast.makeText(context, "Note: Voice recognition may require internet.", Toast.LENGTH_LONG).show()
+        // Guard: if no speech recognizer is installed at all, fail gracefully (#7)
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+            Toast.makeText(
+                context,
+                "Voice recognition is not available on this device.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
         }
+
+        isListening = true
+
+        // Warn when offline model is absent — cloud fallback sends audio to Google (#7)
+        val isOfflineGuaranteed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        if (!isOfflineGuaranteed) {
+            Toast.makeText(
+                context,
+                "Offline voice model not found. Voice input may use the internet.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
         
         val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -669,11 +687,14 @@ fun TransactionFormScreen(
                 )
             }
 
-            // Note
-            Text(text = "Notes (Optional)", style = MaterialTheme.typography.labelLarge, color = GreyText)
+            // Note — capped at 500 chars (#14)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = "Notes (Optional)", style = MaterialTheme.typography.labelLarge, color = GreyText)
+                Text(text = "${note.length}/500", style = MaterialTheme.typography.labelSmall, color = if (note.length > 450) AmberWarning else GreyText)
+            }
             OutlinedTextField(
                 value = note,
-                onValueChange = { note = it },
+                onValueChange = { if (it.length <= 500) note = it },
                 modifier = Modifier.fillMaxWidth().height(110.dp).testTag("input_transaction_note"),
                 placeholder = { Text("Enter a brief description here...", color = GreyText) },
                 colors = OutlinedTextFieldDefaults.colors(

@@ -3,6 +3,7 @@ package com.example.utils
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.core.content.FileProvider
 import com.example.data.model.Budget
 import com.example.data.model.SavingsGoal
@@ -42,7 +43,7 @@ object ExportHelper {
             writer.close()
             return FileProvider.getUriForFile(context, "com.example.fileprovider", file)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("ExportHelper", "exportToCSV failed", e)
             return null
         }
     }
@@ -63,18 +64,21 @@ object ExportHelper {
             // Transactions
             sb.append("  \"transactions\": [\n")
             for ((index, tx) in transactions.withIndex()) {
-                val noteEscMap = tx.note?.replace("\"", "\\\"") ?: "null"
-                val noteVal = if (tx.note == null) "null" else "\"$noteEscMap\""
-                val imgVal = if (tx.imagePath == null) "null" else "\"${tx.imagePath.replace("\\", "\\\\").replace("\"", "\\\"")}\""
-                
-                val recNameVal  = if (tx.receiverName == null)     "null" else "\"${tx.receiverName.replace("\"", "\\\"")}\""
-                val recIdVal    = if (tx.receiverId == null)        "null" else "\"${tx.receiverId.replace("\"", "\\\"")}\""
-                val remVal      = if (tx.remarks == null)           "null" else "\"${tx.remarks.replace("\"", "\\\"")}\""
-                val payVal      = if (tx.paymentMethod == null)     "null" else "\"${tx.paymentMethod.replace("\"", "\\\"")}\""
-                val txnCodeVal  = if (tx.transactionCode == null)   "null" else "\"${tx.transactionCode.replace("\"", "\\\"")}\""
-                val procByVal   = if (tx.processedBy == null)       "null" else "\"${tx.processedBy.replace("\"", "\\\"")}\""
-                val purposeVal  = if (tx.purpose == null)           "null" else "\"${tx.purpose.replace("\"", "\\\"")}\""
-                val initNameVal = if (tx.initiatorName == null)     "null" else "\"${tx.initiatorName.replace("\"", "\\\"")}\""
+                // Fix #15: properly escape all JSON control characters in string fields.
+                val noteVal = if (tx.note == null) "null" else "\"${jsonEscape(tx.note)}\""
+                // Fix #6: export only the filename, not the full internal path.
+                // On import the app resolves it against its own receipts directory.
+                val imgVal = if (tx.imagePath == null) "null"
+                             else "\"${jsonEscape(File(tx.imagePath).name)}\""
+
+                val recNameVal  = if (tx.receiverName == null)     "null" else "\"${jsonEscape(tx.receiverName)}\""
+                val recIdVal    = if (tx.receiverId == null)        "null" else "\"${jsonEscape(tx.receiverId)}\""
+                val remVal      = if (tx.remarks == null)           "null" else "\"${jsonEscape(tx.remarks)}\""
+                val payVal      = if (tx.paymentMethod == null)     "null" else "\"${jsonEscape(tx.paymentMethod)}\""
+                val txnCodeVal  = if (tx.transactionCode == null)   "null" else "\"${jsonEscape(tx.transactionCode)}\""
+                val procByVal   = if (tx.processedBy == null)       "null" else "\"${jsonEscape(tx.processedBy)}\""
+                val purposeVal  = if (tx.purpose == null)           "null" else "\"${jsonEscape(tx.purpose)}\""
+                val initNameVal = if (tx.initiatorName == null)     "null" else "\"${jsonEscape(tx.initiatorName)}\""
                 // Always export amount with 2 decimal places for precision and interoperability
                 val amountStr = String.format("%.2f", tx.amount)
 
@@ -140,7 +144,7 @@ object ExportHelper {
             writer.close()
             return FileProvider.getUriForFile(context, "com.example.fileprovider", file)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("ExportHelper", "exportToJSON failed", e)
             return null
         }
     }
@@ -162,6 +166,14 @@ object ExportHelper {
      * Returns [ImportResult.errors] non-empty on partial parse failures.
      */
     fun parseImportedJSON(jsonContent: String): ImportResult {
+        // Fix #8: guard against OOM from very large files before any heap allocation.
+        if (jsonContent.length > 10_000_000) { // 10 MB limit
+            return ImportResult(
+                emptyList(), emptyList(), emptyList(),
+                listOf("Import file too large. Maximum supported size is 10 MB.")
+            )
+        }
+
         val transactions = mutableListOf<Transaction>()
         val budgets      = mutableListOf<Budget>()
         val savingsGoals = mutableListOf<SavingsGoal>()
@@ -213,7 +225,11 @@ object ExportHelper {
                             category = category,
                             date = date,
                             note = note,
-                            imagePath = imagePath,
+                        // imagePath is intentionally set to null on import.
+                        // The export writes only the filename (not the full internal path)
+                        // so the path cannot be resolved on a different device or after reinstall.
+                        // Transaction data is fully restored; receipt thumbnails are not portable.
+                        imagePath = null,
                             receiverName = receiverName,
                             receiverId = receiverId,
                             remarks = remarks,
@@ -287,6 +303,19 @@ object ExportHelper {
     }
 
     // ── Private JSON parsing helpers ──────────────────────────────────────────
+
+    /**
+     * Properly escapes a string for embedding in a JSON value.
+     * Handles the full set of control characters required by RFC 8259:
+     *   backslash, double-quote, newline, carriage-return, tab, backspace.
+     */
+    private fun jsonEscape(s: String): String = s
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+        .replace("\b", "\\b")
 
     /** Extracts the content of a JSON array for the given key. */
     private fun extractJsonArray(json: String, key: String): String? {

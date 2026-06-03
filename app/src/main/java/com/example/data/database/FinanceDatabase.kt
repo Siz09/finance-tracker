@@ -20,7 +20,10 @@ import com.example.data.model.Bill
 @Database(
     entities = [Transaction::class, Budget::class, SavingsGoal::class, AppSetting::class, Account::class, NetWorthItem::class, DebtItem::class, com.example.data.model.TransactionTemplate::class, JournalEntry::class, Bill::class],
     version = 10,
-    exportSchema = false
+    // exportSchema = true allows Room to write JSON schema files to app/schemas/.
+    // These snapshots let you verify that each migration produces the expected column layout.
+    // Enable schema export in build.gradle.kts: ksp { arg("room.schemaLocation", ...) }
+    exportSchema = true
 )
 abstract class FinanceDatabase : RoomDatabase() {
 

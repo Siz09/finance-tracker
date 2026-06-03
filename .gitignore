@@ -17,6 +17,6 @@ local.properties
 .env
 debug.keystore
 
-# Review/audit working documents — not part of the production codebase
-kharcha_audit.md
-round2_review.html
+# Internal planning & audit docs \u2014 not part of the production codebase
+# These live in docs/ and should not be published in public releases
+docs/
