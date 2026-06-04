@@ -11,7 +11,8 @@ import com.example.MainActivity
 import com.example.R
 import com.example.data.database.FinanceDatabase
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,13 +51,12 @@ class FinanceWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_balance, pendingIntent)
 
-            // Fetch DB calculations off-thread.
-            // MainScope() is the idiomatic bounded scope for Android components that
-            // have no LifecycleOwner (like AppWidgetProvider / BroadcastReceiver).
-            // It avoids the untracked-scope leak of a raw CoroutineScope(Dispatchers.IO).
-            // The heavy DB read is dispatched to IO; the RemoteViews update is
-            // thread-safe and can also run there.
-            MainScope().launch {
+            // Use a supervised scope so any thrown exception cancels only this
+            // update, not an entire untracked MainScope.
+            val scope = kotlinx.coroutines.CoroutineScope(
+                SupervisorJob() + Dispatchers.IO
+            )
+            scope.launch {
                 try {
                     val (income, expense, balance) = withContext(Dispatchers.IO) {
                         val db = FinanceDatabase.getDatabase(context)
@@ -76,6 +76,8 @@ class FinanceWidgetProvider : AppWidgetProvider() {
                     appWidgetManager.updateAppWidget(appWidgetId, views)
                 } catch (e: Exception) {
                     android.util.Log.e("FinanceWidgetProvider", "Widget update failed", e)
+                } finally {
+                    scope.cancel()
                 }
             }
         }

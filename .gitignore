@@ -16,6 +16,7 @@
 local.properties
 .env
 debug.keystore
+*.apk
 
 # Internal planning & audit docs \u2014 not part of the production codebase
 # These live in docs/ and should not be published in public releases

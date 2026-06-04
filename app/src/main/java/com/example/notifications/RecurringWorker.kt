@@ -30,40 +30,51 @@ class RecurringWorker(
                 val txDate = sdf.parse(tx.date) ?: continue
                 val cal = Calendar.getInstance().apply { time = txDate }
 
-                when (tx.recurrenceFrequency?.lowercase()) {
-                    "daily" -> cal.add(Calendar.DAY_OF_YEAR, 1)
-                    "weekly" -> cal.add(Calendar.WEEK_OF_YEAR, 1)
-                    "monthly" -> cal.add(Calendar.MONTH, 1)
-                    else -> continue
+                // Advance one period at a time until we are in the future,
+                // creating a logged copy for every missed interval.
+                var lastDate = tx.date
+                var didTrigger = false
+                while (true) {
+                    when (tx.recurrenceFrequency?.lowercase()) {
+                        "daily"   -> cal.add(Calendar.DAY_OF_YEAR, 1)
+                        "weekly"  -> cal.add(Calendar.WEEK_OF_YEAR, 1)
+                        "monthly" -> cal.add(Calendar.MONTH, 1)
+                        else      -> break
+                    }
+                    // If the next trigger is still in the past/today, log it
+                    if (!cal.time.after(today)) {
+                        val triggerDateStr = sdf.format(cal.time)
+                        val newTx = Transaction(
+                            type = tx.type,
+                            amount = tx.amount,
+                            category = tx.category,
+                            date = triggerDateStr,
+                            note = tx.note ?: "Recurring transaction auto-log",
+                            imagePath = null,
+                            receiverName = tx.receiverName,
+                            receiverId = tx.receiverId,
+                            remarks = tx.remarks,
+                            paymentMethod = tx.paymentMethod,
+                            transactionCode = null,
+                            processedBy = tx.processedBy,
+                            purpose = tx.purpose,
+                            initiatorName = tx.initiatorName,
+                            isRecurring = false,
+                            recurrenceFrequency = null,
+                            accountId = tx.accountId
+                        )
+                        dao.insertTransaction(newTx)
+                        lastDate = triggerDateStr
+                        didTrigger = true
+                    } else {
+                        break
+                    }
                 }
 
-                // If next trigger date is today or in the past, trigger it!
-                if (!cal.time.after(today)) {
-                    // Create copy for today
-                    val newTx = Transaction(
-                        type = tx.type,
-                        amount = tx.amount,
-                        category = tx.category,
-                        date = todayStr,
-                        note = tx.note ?: "Recurring transaction auto-log",
-                        imagePath = null, // don't copy receipt photo
-                        receiverName = tx.receiverName,
-                        receiverId = tx.receiverId,
-                        remarks = tx.remarks,
-                        paymentMethod = tx.paymentMethod,
-                        transactionCode = null, // unique per transaction
-                        processedBy = tx.processedBy,
-                        purpose = tx.purpose,
-                        initiatorName = tx.initiatorName,
-                        isRecurring = false, // the logged one is standard
-                        recurrenceFrequency = null,
-                        accountId = tx.accountId
-                    )
-                    dao.insertTransaction(newTx)
-
-                    // Update parent transaction's date to today to reset the cycle
-                    val updatedParent = tx.copy(date = todayStr)
-                    dao.updateTransaction(updatedParent)
+                // Update parent's date to the last triggered date so next run
+                // starts from the correct baseline
+                if (didTrigger) {
+                    dao.updateTransaction(tx.copy(date = lastDate))
                 }
             }
             // Budget Rollover Logic

@@ -37,23 +37,24 @@ object ExportHelper {
             // Transactions
             sb.append("  \"transactions\": [\n")
             for ((index, tx) in transactions.withIndex()) {
-                // Fix #15: properly escape all JSON control characters in string fields.
-                val noteVal = if (tx.note == null) "null" else "\"${jsonEscape(tx.note)}\""
-                // Fix #6: export only the filename, not the full internal path.
-                // On import the app resolves it against its own receipts directory.
-                val imgVal = if (tx.imagePath == null) "null"
-                             else "\"${jsonEscape(File(tx.imagePath).name)}\""
-
-                val recNameVal  = if (tx.receiverName == null)     "null" else "\"${jsonEscape(tx.receiverName)}\""
-                val recIdVal    = if (tx.receiverId == null)        "null" else "\"${jsonEscape(tx.receiverId)}\""
-                val remVal      = if (tx.remarks == null)           "null" else "\"${jsonEscape(tx.remarks)}\""
-                val payVal      = if (tx.paymentMethod == null)     "null" else "\"${jsonEscape(tx.paymentMethod)}\""
-                val txnCodeVal  = if (tx.transactionCode == null)   "null" else "\"${jsonEscape(tx.transactionCode)}\""
-                val procByVal   = if (tx.processedBy == null)       "null" else "\"${jsonEscape(tx.processedBy)}\""
-                val purposeVal  = if (tx.purpose == null)           "null" else "\"${jsonEscape(tx.purpose)}\""
-                val initNameVal = if (tx.initiatorName == null)     "null" else "\"${jsonEscape(tx.initiatorName)}\""
-                // Always export amount with 2 decimal places for precision and interoperability
-                val amountStr = String.format("%.2f", tx.amount)
+                val noteVal       = if (tx.note == null)            "null" else "\"${jsonEscape(tx.note)}\""
+                // Export only the filename — path is device-specific and non-portable.
+                val imgVal        = if (tx.imagePath == null)        "null"
+                                   else "\"${jsonEscape(File(tx.imagePath).name)}\""
+                val recNameVal    = if (tx.receiverName == null)     "null" else "\"${jsonEscape(tx.receiverName)}\""
+                val recIdVal      = if (tx.receiverId == null)       "null" else "\"${jsonEscape(tx.receiverId)}\""
+                val remVal        = if (tx.remarks == null)          "null" else "\"${jsonEscape(tx.remarks)}\""
+                val payVal        = if (tx.paymentMethod == null)    "null" else "\"${jsonEscape(tx.paymentMethod)}\""
+                val txnCodeVal    = if (tx.transactionCode == null)  "null" else "\"${jsonEscape(tx.transactionCode)}\""
+                val procByVal     = if (tx.processedBy == null)      "null" else "\"${jsonEscape(tx.processedBy)}\""
+                val purposeVal    = if (tx.purpose == null)          "null" else "\"${jsonEscape(tx.purpose)}\""
+                val initNameVal   = if (tx.initiatorName == null)    "null" else "\"${jsonEscape(tx.initiatorName)}\""
+                val moodVal       = if (tx.mood == null)             "null" else "\"${jsonEscape(tx.mood)}\""
+                val timeVal       = if (tx.time == null)             "null" else "\"${jsonEscape(tx.time)}\""
+                val parentIdVal   = if (tx.parentTransactionId == null) "null" else "${tx.parentTransactionId}"
+                val recurFreqVal  = if (tx.recurrenceFrequency == null) "null" else "\"${jsonEscape(tx.recurrenceFrequency)}\""
+                val accountIdVal  = if (tx.accountId == null)        "null" else "${tx.accountId}"
+                val amountStr     = String.format("%.2f", tx.amount)
 
                 sb.append("    {\n")
                 sb.append("      \"id\": ${tx.id},\n")
@@ -71,6 +72,12 @@ object ExportHelper {
                 sb.append("      \"processedBy\": $procByVal,\n")
                 sb.append("      \"purpose\": $purposeVal,\n")
                 sb.append("      \"initiatorName\": $initNameVal,\n")
+                sb.append("      \"isRecurring\": ${tx.isRecurring},\n")
+                sb.append("      \"recurrenceFrequency\": $recurFreqVal,\n")
+                sb.append("      \"accountId\": $accountIdVal,\n")
+                sb.append("      \"mood\": $moodVal,\n")
+                sb.append("      \"time\": $timeVal,\n")
+                sb.append("      \"parentTransactionId\": $parentIdVal,\n")
                 sb.append("      \"createdAt\": ${tx.createdAt}\n")
                 if (index < transactions.size - 1) {
                     sb.append("    },\n")
@@ -87,7 +94,9 @@ object ExportHelper {
                 sb.append("      \"id\": ${bg.id},\n")
                 sb.append("      \"category\": \"${bg.category}\",\n")
                 sb.append("      \"monthlyLimit\": ${String.format("%.2f", bg.monthlyLimit)},\n")
-                sb.append("      \"month\": \"${bg.month}\"\n")
+                sb.append("      \"month\": \"${bg.month}\",\n")
+                sb.append("      \"rolloverAmount\": ${String.format("%.2f", bg.rolloverAmount)},\n")
+                sb.append("      \"rolloverEnabled\": ${bg.rolloverEnabled}\n")
                 if (index < budgets.size - 1) {
                     sb.append("    },\n")
                 } else {
@@ -99,10 +108,15 @@ object ExportHelper {
             // Savings Goals
             sb.append("  \"savingsGoals\": [\n")
             for ((index, sg) in savingsGoals.withIndex()) {
+                val deadlineVal = if (sg.deadline == null) "null" else "${sg.deadline}"
                 sb.append("    {\n")
                 sb.append("      \"id\": ${sg.id},\n")
+                sb.append("      \"name\": \"${jsonEscape(sg.name)}\",\n")
                 sb.append("      \"target\": ${String.format("%.2f", sg.target)},\n")
-                sb.append("      \"month\": \"${sg.month}\"\n")
+                sb.append("      \"savedAmount\": ${String.format("%.2f", sg.savedAmount)},\n")
+                sb.append("      \"month\": \"${sg.month}\",\n")
+                sb.append("      \"deadline\": $deadlineVal,\n")
+                sb.append("      \"autoCreditEnabled\": ${sg.autoCreditEnabled}\n")
                 if (index < savingsGoals.size - 1) {
                     sb.append("    },\n")
                 } else {
@@ -165,13 +179,11 @@ object ExportHelper {
                 val objects = splitJsonObjects(arr)
                 objects.forEachIndexed { idx, obj ->
                     try {
-                        val id            = extractInt(obj, "id") ?: 0
                         val type          = extractString(obj, "type") ?: return@forEachIndexed
                         val amount        = extractDouble(obj, "amount") ?: return@forEachIndexed
                         val category      = extractString(obj, "category") ?: ""
                         val date          = extractString(obj, "date") ?: ""
                         val note          = extractNullableString(obj, "note")
-                        val imagePath     = extractNullableString(obj, "imagePath")
                         val receiverName  = extractNullableString(obj, "receiverName")
                         val receiverId    = extractNullableString(obj, "receiverId")
                         val remarks       = extractNullableString(obj, "remarks")
@@ -180,6 +192,12 @@ object ExportHelper {
                         val processedBy   = extractNullableString(obj, "processedBy")
                         val purpose       = extractNullableString(obj, "purpose")
                         val initiatorName = extractNullableString(obj, "initiatorName")
+                        val isRecurring   = obj.contains("\"isRecurring\": true")
+                        val recurFreq     = extractNullableString(obj, "recurrenceFrequency")
+                        val accountId     = extractInt(obj, "accountId")
+                        val mood          = extractNullableString(obj, "mood")
+                        val time          = extractNullableString(obj, "time")
+                        val parentId      = extractInt(obj, "parentTransactionId")
                         val createdAt     = extractLong(obj, "createdAt") ?: System.currentTimeMillis()
 
                         if (type != "income" && type != "expense") {
@@ -192,17 +210,14 @@ object ExportHelper {
                         }
 
                         transactions.add(Transaction(
-                            id = id,
+                            id = 0, // Let Room assign a fresh ID to avoid silent IGNORE conflicts
                             type = type,
                             amount = amount,
                             category = category,
                             date = date,
                             note = note,
-                        // imagePath is intentionally set to null on import.
-                        // The export writes only the filename (not the full internal path)
-                        // so the path cannot be resolved on a different device or after reinstall.
-                        // Transaction data is fully restored; receipt thumbnails are not portable.
-                        imagePath = null,
+                            // imagePath is intentionally null — receipt images are not portable across devices.
+                            imagePath = null,
                             receiverName = receiverName,
                             receiverId = receiverId,
                             remarks = remarks,
@@ -211,6 +226,12 @@ object ExportHelper {
                             processedBy = processedBy,
                             purpose = purpose,
                             initiatorName = initiatorName,
+                            isRecurring = isRecurring,
+                            recurrenceFrequency = recurFreq,
+                            accountId = accountId,
+                            mood = mood,
+                            time = time,
+                            parentTransactionId = parentId,
                             createdAt = createdAt
                         ))
                     } catch (e: Exception) {
@@ -225,11 +246,19 @@ object ExportHelper {
                 val objects = splitJsonObjects(arr)
                 objects.forEachIndexed { idx, obj ->
                     try {
-                        val id    = extractInt(obj, "id") ?: 0
-                        val cat   = extractString(obj, "category") ?: return@forEachIndexed
-                        val limit = extractDouble(obj, "monthlyLimit") ?: return@forEachIndexed
-                        val month = extractString(obj, "month") ?: return@forEachIndexed
-                        budgets.add(Budget(id = id, category = cat, monthlyLimit = limit, month = month))
+                        val cat            = extractString(obj, "category") ?: return@forEachIndexed
+                        val limit          = extractDouble(obj, "monthlyLimit") ?: return@forEachIndexed
+                        val month          = extractString(obj, "month") ?: return@forEachIndexed
+                        val rolloverAmount  = extractDouble(obj, "rolloverAmount") ?: 0.0
+                        val rolloverEnabled = obj.contains("\"rolloverEnabled\": true")
+                        budgets.add(Budget(
+                            id = 0,
+                            category = cat,
+                            monthlyLimit = limit,
+                            month = month,
+                            rolloverAmount = rolloverAmount,
+                            rolloverEnabled = rolloverEnabled
+                        ))
                     } catch (e: Exception) {
                         errors.add("Budget[$idx]: parse error — ${e.message}")
                     }
@@ -242,10 +271,21 @@ object ExportHelper {
                 val objects = splitJsonObjects(arr)
                 objects.forEachIndexed { idx, obj ->
                     try {
-                        val id     = extractInt(obj, "id") ?: 0
-                        val target = extractDouble(obj, "target") ?: return@forEachIndexed
-                        val month  = extractString(obj, "month") ?: return@forEachIndexed
-                        savingsGoals.add(SavingsGoal(id = id, target = target, month = month))
+                        val name            = extractString(obj, "name") ?: ""
+                        val target          = extractDouble(obj, "target") ?: return@forEachIndexed
+                        val savedAmount     = extractDouble(obj, "savedAmount") ?: 0.0
+                        val month           = extractString(obj, "month") ?: return@forEachIndexed
+                        val deadline        = extractLong(obj, "deadline")
+                        val autoCreditEnabled = obj.contains("\"autoCreditEnabled\": true")
+                        savingsGoals.add(SavingsGoal(
+                            id = 0,
+                            name = name,
+                            target = target,
+                            savedAmount = savedAmount,
+                            month = month,
+                            deadline = deadline,
+                            autoCreditEnabled = autoCreditEnabled
+                        ))
                     } catch (e: Exception) {
                         errors.add("SavingsGoal[$idx]: parse error — ${e.message}")
                     }

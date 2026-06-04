@@ -199,7 +199,10 @@ fun DashboardScreen(
     }
 
     var yearMenuExpanded by remember { mutableStateOf(false) }
-    val yearsList = listOf("2023", "2024", "2025", "2026", "2027", "2028")
+    val yearsList = remember {
+        val thisYear = Calendar.getInstance().get(Calendar.YEAR)
+        (thisYear - 3..thisYear + 3).map { it.toString() }
+    }
     val currentYear = remember(selectedMonth) { selectedMonth.take(4) }
     val currentMonthIndex = remember(selectedMonth) { selectedMonth.substring(5).toIntOrNull()?.minus(1) ?: 0 }
 
